@@ -1,12 +1,56 @@
 import { useState } from "react";
 import { Send, User, Bot, Loader2 } from "lucide-react";
 
+interface RetrievedChunk {
+  id: string;
+  score: number;
+  pageContent: string;
+  chunkIndex: number | null;
+  source: string;
+  metadata: unknown;
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
-  sources?: string[];
+  matches?: RetrievedChunk[];
+}
+
+function SourceTooltip({
+  match,
+  index,
+}: {
+  match: RetrievedChunk;
+  index: number;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <span className="relative inline-block mx-0.5 group">
+      <button
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        className="w-4 h-4 text-[9px] font-bold bg-slate-700 text-slate-400 rounded-md inline-flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+      >
+        {index}
+      </button>
+      {show && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-4 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-1">
+          <div className="text-[10px] font-bold text-white mb-2 pb-2 border-b border-slate-700/50 truncate flex items-center justify-between">
+            <span>{match.source}</span>
+            <span className="text-slate-500">Chunk #{match.chunkIndex}</span>
+          </div>
+          <div className="text-[11px] leading-relaxed text-slate-300 italic line-clamp-6">
+            "{match.pageContent}"
+          </div>
+          <div className="mt-3 text-[9px] font-bold text-blue-500 uppercase tracking-tighter">
+            View full source
+          </div>
+        </div>
+      )}
+    </span>
+  );
 }
 
 export function ChatInterface() {
@@ -56,7 +100,7 @@ export function ChatInterface() {
         role: "assistant",
         content: data.answer,
         timestamp: new Date(),
-        sources: data.sources,
+        matches: data.matches,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -78,18 +122,45 @@ export function ChatInterface() {
     }
   };
 
+  const renderMessageContent = (content: string, matches: RetrievedChunk[] = []) => {
+    const parts = content.split(/(\[\d+\])/g);
+    return parts.map((part, index) => {
+      const citationMatch = part.match(/\[(\d+)\]/);
+      if (citationMatch) {
+        const sourceIndex = parseInt(citationMatch[1]) - 1;
+        const sourceMatch = matches[sourceIndex];
+        if (sourceMatch) {
+          return (
+            <SourceTooltip
+              key={index}
+              match={sourceMatch}
+              index={sourceIndex + 1}
+            />
+          );
+        }
+      }
+      return part;
+    });
+  };
+
   return (
-    <div className="flex flex-col h-[600px] w-full max-w-3xl bg-white rounded-xl border border-slate-200 shadow-lg overflow-hidden">
+    <div className="flex flex-col h-full w-full max-w-4xl bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-slate-200 bg-white">
-        <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-          <Bot className="w-5 h-5 text-blue-600" />
-          Chat with your documents
+      <div className="px-6 py-4 border-b border-slate-800 bg-slate-900 flex items-center justify-between">
+        <h2 className="text-sm font-bold text-white flex items-center gap-2">
+          <Bot className="w-4 h-4 text-blue-500" />
+          Intelligence Console
         </h2>
+        <div className="flex gap-1 items-center">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
+            Active Session
+          </span>
+        </div>
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/30">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-950/50">
         {messages.map((message) => (
           <div
             key={message.id}
@@ -98,50 +169,33 @@ export function ChatInterface() {
             }`}
           >
             <div
-              className={`flex-none w-8 h-8 rounded-full flex items-center justify-center ${
+              className={`flex-none w-8 h-8 rounded-lg flex items-center justify-center ${
                 message.role === "user"
                   ? "bg-blue-600 text-white"
-                  : "bg-slate-200 text-slate-600"
+                  : "bg-slate-800 text-slate-400"
               }`}
             >
               {message.role === "user" ? (
-                <User className="w-5 h-5" />
+                <User className="w-4 h-4" />
               ) : (
-                <Bot className="w-5 h-5" />
+                <Bot className="w-4 h-4" />
               )}
             </div>
             <div
-              className={`flex flex-col max-w-[80%] ${
+              className={`flex flex-col max-w-[85%] ${
                 message.role === "user" ? "items-end" : ""
               }`}
             >
               <div
-                className={`px-4 py-2 rounded-2xl text-sm leading-relaxed ${
+                className={`px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
                   message.role === "user"
                     ? "bg-blue-600 text-white rounded-tr-none"
-                    : "bg-white text-slate-900 border border-slate-200 rounded-tl-none shadow-sm"
+                    : "bg-slate-800 text-slate-200 border border-slate-700 rounded-tl-none"
                 }`}
               >
-                {message.content}
-                {message.sources && message.sources.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-slate-100">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                      Sources
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {message.sources.map((source, index) => (
-                        <span
-                          key={index}
-                          className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-medium"
-                        >
-                          {source}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {renderMessageContent(message.content, message.matches)}
               </div>
-              <span className="mt-1 text-[10px] text-slate-400 px-1 font-medium uppercase">
+              <span className="mt-1 text-[9px] font-bold text-slate-600 px-1 uppercase tracking-tight">
                 {message.timestamp.toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
@@ -152,13 +206,13 @@ export function ChatInterface() {
         ))}
         {isLoading && (
           <div className="flex items-start gap-4">
-            <div className="flex-none w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center">
-              <Bot className="w-5 h-5" />
+            <div className="flex-none w-8 h-8 rounded-lg bg-slate-800 text-slate-400 flex items-center justify-center">
+              <Bot className="w-4 h-4" />
             </div>
-            <div className="px-4 py-2 rounded-2xl bg-white border border-slate-200 rounded-tl-none shadow-sm flex items-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-              <span className="text-xs text-slate-500 italic">
-                DocBuddy is thinking...
+            <div className="px-4 py-3 rounded-2xl bg-slate-800 border border-slate-700 rounded-tl-none shadow-sm flex items-center gap-2">
+              <Loader2 className="w-3 h-3 animate-spin text-blue-500" />
+              <span className="text-[11px] text-slate-400 font-medium italic">
+                Scanning knowledge base...
               </span>
             </div>
           </div>
@@ -166,21 +220,21 @@ export function ChatInterface() {
       </div>
 
       {/* Input Area */}
-      <div className="p-4 border-t border-slate-200 bg-white">
-        <div className="relative flex items-center max-w-4xl mx-auto w-full">
+      <div className="p-4 bg-slate-900 border-t border-slate-800">
+        <div className="relative flex items-center max-w-3xl mx-auto w-full px-2">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Ask a question about your document..."
+            placeholder="Start typing..."
             disabled={isLoading}
-            className="w-full pl-4 pr-12 py-3 bg-slate-100 border-2 border-transparent rounded-full text-sm focus:ring-0 focus:border-blue-500 focus:bg-white transition-all outline-none disabled:opacity-50"
+            className="w-full pl-5 pr-14 py-4 bg-slate-950 border border-slate-800 rounded-2xl text-sm text-slate-200 placeholder:text-slate-600 focus:ring-0 focus:border-slate-700 transition-all outline-none disabled:opacity-50"
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className="absolute right-1.5 p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-all shadow-sm"
+            className="absolute right-4 p-2 bg-slate-800 text-slate-400 rounded-xl hover:bg-blue-600 hover:text-white disabled:bg-slate-900 disabled:text-slate-700 disabled:cursor-not-allowed transition-all shadow-lg"
             aria-label="Send message"
           >
             {isLoading ? (
@@ -189,6 +243,11 @@ export function ChatInterface() {
               <Send className="w-4 h-4" />
             )}
           </button>
+        </div>
+        <div className="mt-2 px-6 flex justify-end">
+          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-tighter">
+            {messages.length > 1 ? "Grounded in sources" : ""}
+          </span>
         </div>
       </div>
     </div>
