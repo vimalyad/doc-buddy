@@ -7,7 +7,15 @@ function App() {
       {/* Top Navigation Bar */}
       <header className="flex-none px-6 py-4 bg-[#0a0a0a] border-b border-neutral-900 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="DocBuddy Logo" className="h-6 object-contain" />
+          <img
+            src="/logo.png"
+            alt="DocBuddy Logo"
+            className="h-8 object-contain"
+            style={{ filter: "brightness(0) invert(1)" }}
+          />
+          <span className="text-sm font-semibold tracking-wide text-neutral-200">
+            DocBuddy
+          </span>
         </div>
       </header>
 
