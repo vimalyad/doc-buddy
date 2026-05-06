@@ -14,8 +14,10 @@ DocBuddy is a full-stack RAG (Retrieval-Augmented Generation) application design
 - **Deployment Targets:** Vercel (Frontend), Render (Backend)
 
 ## Current Status
-- ✅ Phase 1: Scaffolding complete
-- ⏳ Phase 2: Ingestion Pipeline (In progress)
+
+- Done: Phase 1 - Scaffolding
+- Done: Phase 2 - Ingestion Pipeline
+- Next: Phase 3 - Embeddings & Vector Store
 
 ## Getting Started
 
