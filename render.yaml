@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: doc-buddy-backend
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build -w backend
+    startCommand: npm run start -w backend
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: PORT
+        value: 3000
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: LLAMA_CLOUD_API_KEY
+        sync: false
+      - key: HUGGINGFACEHUB_API_KEY
+        sync: false
