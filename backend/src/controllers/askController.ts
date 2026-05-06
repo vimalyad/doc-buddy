@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { searchSimilarChunks } from "../services/documentVectorStore";
+import { answerQuestion } from "../services/qaService";
 
 const DEFAULT_MATCH_LIMIT = 5;
 const MAX_MATCH_LIMIT = 10;
@@ -27,11 +27,13 @@ export const askQuestion = async (
   }
 
   try {
-    const matches = await searchSimilarChunks(question, limit);
+    const result = await answerQuestion(question, limit);
 
     res.status(200).json({
       question,
-      matches,
+      answer: result.answer,
+      sources: result.sources,
+      matches: result.matches,
     });
   } catch (error) {
     const message =

@@ -14,7 +14,7 @@ type StoredChunk = {
   source: string;
 };
 
-type RetrievedChunk = {
+export type RetrievedChunk = {
   id: string;
   score: number;
   pageContent: string;
