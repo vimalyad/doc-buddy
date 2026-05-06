@@ -1,4 +1,4 @@
-# DocBuddy - Zero-Cost NotebookLM Clone
+# DocBuddy
 
 DocBuddy is a full-stack RAG (Retrieval-Augmented Generation) application designed as a zero-cost alternative to NotebookLM.
 
@@ -18,7 +18,8 @@ DocBuddy is a full-stack RAG (Retrieval-Augmented Generation) application design
 - Done: Phase 1 - Scaffolding
 - Done: Phase 2 - Ingestion Pipeline
 - Done: Phase 3 - Embeddings & Vector Store
-- Next: Phase 4 - RAG Retrieval & Generation
+- Done: Phase 4 - RAG Retrieval & Generation
+- Next: Phase 5 - Frontend UI
 
 ## Getting Started
 
