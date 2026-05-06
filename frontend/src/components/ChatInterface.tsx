@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import axios from "axios";
 import { Send, User, Bot, Loader2, Trash2 } from "lucide-react";
 
 interface RetrievedChunk {
@@ -27,23 +28,34 @@ function SourceTooltip({
 }) {
   const [show, setShow] = useState(false);
 
+  // Extract page number from metadata if available
+  const metadata = match.metadata as { loc?: { pageNumber?: number } } | null;
+  const pageNumber = metadata?.loc?.pageNumber;
+  const badgeText = pageNumber ? `p. ${pageNumber}` : index;
+
   return (
     <span className="relative inline-block mx-0.5 group">
       <button
         onMouseEnter={() => setShow(true)}
         onMouseLeave={() => setShow(false)}
-        className="w-4 h-4 text-[9px] font-bold bg-neutral-800 text-neutral-400 rounded-full inline-flex items-center justify-center hover:bg-neutral-700 hover:text-white transition-all shadow-sm align-super"
+        className="h-4 px-1.5 text-[9px] font-bold bg-neutral-800 text-neutral-400 rounded-full inline-flex items-center justify-center hover:bg-neutral-700 hover:text-white transition-all shadow-sm align-super whitespace-nowrap"
       >
-        {index}
+        {badgeText}
       </button>
       {show && (
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-3 bg-neutral-900 border border-neutral-800 rounded-lg shadow-xl z-50 animate-in fade-in slide-in-from-bottom-1">
           <div className="text-[11px] font-medium text-neutral-300 mb-2 pb-2 border-b border-neutral-800 flex items-center justify-between">
             <span className="truncate pr-2">{match.source}</span>
-            <span className="text-neutral-500 whitespace-nowrap">Chunk #{match.chunkIndex}</span>
+            <span className="text-neutral-500 whitespace-nowrap">
+              {pageNumber ? `Page ${pageNumber}` : `Chunk #${match.chunkIndex}`}
+            </span>
           </div>
           <div className="text-[12px] leading-relaxed text-neutral-400">
-            "{match.pageContent.length > 200 ? match.pageContent.substring(0, 200) + "..." : match.pageContent}"
+            "
+            {match.pageContent.length > 200
+              ? match.pageContent.substring(0, 200) + "..."
+              : match.pageContent}
+            "
           </div>
         </div>
       )}
@@ -112,19 +124,8 @@ export function ChatInterface() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/ask", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ question: input }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to get an answer from the assistant.");
-      }
-
-      const data = await response.json();
+      const response = await axios.post("/api/ask", { question: input });
+      const data = response.data;
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -135,11 +136,14 @@ export function ChatInterface() {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
-    } catch (err: unknown) {
-      const errorMessageText =
-        err instanceof Error
-          ? err.message
-          : "Sorry, I encountered an error while processing your request.";
+    } catch (err) {
+      let errorMessageText =
+        "Sorry, I encountered an error while processing your request.";
+      if (axios.isAxiosError(err)) {
+        errorMessageText = err.response?.data?.error || err.message;
+      } else if (err instanceof Error) {
+        errorMessageText = err.message;
+      }
 
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -181,9 +185,7 @@ export function ChatInterface() {
     <div className="flex flex-col h-full w-full bg-[#0a0a0a] overflow-hidden text-neutral-200">
       {/* Header */}
       <div className="px-8 py-5 border-b border-neutral-900 bg-[#0a0a0a] flex items-center justify-between">
-        <h2 className="text-[15px] font-medium text-neutral-400">
-          Chat
-        </h2>
+        <h2 className="text-[15px] font-medium text-neutral-400">Chat</h2>
         <button
           onClick={clearChat}
           title="Clear chat history"
@@ -229,9 +231,7 @@ export function ChatInterface() {
             </div>
             <div className="flex-1 flex items-center gap-2 pt-1">
               <Loader2 className="w-4 h-4 animate-spin text-neutral-600" />
-              <span className="text-[14px] text-neutral-500">
-                Thinking...
-              </span>
+              <span className="text-[14px] text-neutral-500">Thinking...</span>
             </div>
           </div>
         )}

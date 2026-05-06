@@ -28,6 +28,7 @@ export const uploadDocument = async (
       splitter: splitterConfig,
     });
   } catch (error) {
+    console.log(error)
     const message =
       error instanceof Error ? error.message : "Failed to parse uploaded file";
 

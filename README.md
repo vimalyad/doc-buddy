@@ -9,9 +9,9 @@ It features a sleek, minimalist dark-mode UI with inline NotebookLM-style citati
 ## ✨ Key Features
 
 - **Sleek Minimalist UI:** A beautiful, dark-themed interface built with Tailwind CSS, focusing purely on reading and chatting.
-- **NotebookLM-Style Citations:** The AI cites its claims with small badges (e.g., `[1]`). Hovering over these badges reveals the exact chunk of text and the source file it used to generate the answer.
+- **NotebookLM-Style Page Citations:** The AI cites its claims with small badges (e.g., `p. 12`). The backend parses PDFs natively page-by-page, allowing the UI to instantly trace AI answers back to their exact page number and source text via an interactive hover tooltip.
 - **Persistent State:** Chat history and knowledge base metadata are automatically saved to your browser's local storage so you don't lose your work on refresh.
-- **Zero-Duplicate Ingestion:** Uploading the same file automatically wipes old versions to keep your vector database clean.
+- **Zero-Duplicate Ingestion:** Uploading the same file automatically wipes old versions to keep your vector database clean. The database is also automatically wiped on server startup to guarantee a clean slate.
 - **Smart Query Rewriting:** Before searching, the AI silently rewrites your raw question into an optimized semantic search query, drastically improving retrieval accuracy.
 
 ---
@@ -21,10 +21,10 @@ It features a sleek, minimalist dark-mode UI with inline NotebookLM-style citati
 The project follows a Monorepo architecture separating the frontend and backend.
 
 ### Frontend
-
 - **React 18 & TypeScript**
 - **Vite** for fast bundling
 - **Tailwind CSS** for modern, responsive styling
+- **Axios** for clean, robust API communication
 - **Lucide React** for crisp, scalable icons
 
 ### Backend
