@@ -4,11 +4,15 @@
   "private": true,
   "description": "Zero-Cost NotebookLM Clone",
   "scripts": {
-    "start": "npm run start --workspaces",
-    "dev": "npm run dev --workspaces"
+    "dev": "concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "build": "npm run build --workspaces",
+    "start": "npm run start --workspaces"
   },
   "workspaces": [
     "frontend",
     "backend"
-  ]
+  ],
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
 }
