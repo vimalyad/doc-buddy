@@ -1,0 +1,14 @@
+{
+  "name": "doc-buddy-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Zero-Cost NotebookLM Clone",
+  "scripts": {
+    "start": "npm run start --workspaces",
+    "dev": "npm run dev --workspaces"
+  },
+  "workspaces": [
+    "frontend",
+    "backend"
+  ]
+}
