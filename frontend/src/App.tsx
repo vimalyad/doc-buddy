@@ -7,13 +7,12 @@ function App() {
       {/* Top Navigation Bar */}
       <header className="flex-none px-6 py-4 bg-[#0a0a0a] border-b border-neutral-900 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg overflow-hidden flex-none border border-neutral-700 shadow-sm">
-            <img
-              src="/favicon.png"
-              alt="DocBuddy Icon"
-              className="w-full h-full object-cover"
-            />
-          </div>
+          <img
+            src="/favicon.png"
+            alt="DocBuddy Icon"
+            className="w-8 h-8 object-contain"
+            style={{ mixBlendMode: "screen" }}
+          />
           <span className="text-[15px] font-semibold tracking-tight text-neutral-100">
             DocBuddy
           </span>
