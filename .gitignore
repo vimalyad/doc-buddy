@@ -8,3 +8,4 @@ build/
 coverage/
 *.log
 implementation.md
+changes.md
