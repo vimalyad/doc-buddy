@@ -5,6 +5,7 @@ import { CheckCircle2, FileText, Loader2, Upload, XCircle } from "lucide-react";
 
 const ACCEPTED_TYPES = ["application/pdf", "text/plain", "text/csv"];
 const ACCEPTED_EXTENSIONS = [".pdf", ".txt", ".csv"];
+const API_URL = import.meta.env.VITE_API_URL || "";
 
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) {
@@ -82,7 +83,7 @@ export function FileUpload() {
       const formData = new FormData();
       formData.append("file", nextFile);
 
-      await axios.post("/api/upload", formData);
+      await axios.post(`${API_URL}/api/upload`, formData);
 
       // Success! The file is now embedded in Qdrant — persist metadata
       setPersistedFile({ name: nextFile.name, size: nextFile.size });
@@ -121,7 +122,7 @@ export function FileUpload() {
     const nameToDelete = file?.name ?? persistedFile?.name;
     if (nameToDelete) {
       try {
-        await axios.post("/api/delete", { source: nameToDelete });
+        await axios.post(`${API_URL}/api/delete`, { source: nameToDelete });
       } catch (err) {
         console.error("Failed to sync deletion with vector store:", err);
       }
