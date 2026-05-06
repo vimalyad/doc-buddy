@@ -44,7 +44,9 @@ app.post(
       });
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to parse uploaded file";
+        error instanceof Error
+          ? error.message
+          : "Failed to parse uploaded file";
 
       res.status(500).json({ error: message });
     }
