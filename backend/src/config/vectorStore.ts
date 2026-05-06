@@ -20,3 +20,16 @@ export const ensureQdrantCollection = async (): Promise<void> => {
     },
   });
 };
+
+export const resetQdrantCollection = async (): Promise<void> => {
+  const client = getQdrantClient();
+  const collection = await client.collectionExists(QDRANT_COLLECTION_NAME);
+
+  if (collection.exists) {
+    await client.deleteCollection(QDRANT_COLLECTION_NAME);
+    console.log(`🧹 Wiped out existing Qdrant collection: ${QDRANT_COLLECTION_NAME}`);
+  }
+
+  await ensureQdrantCollection();
+  console.log(`✨ Created fresh Qdrant collection: ${QDRANT_COLLECTION_NAME}`);
+};

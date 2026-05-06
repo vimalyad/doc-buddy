@@ -1,53 +1,119 @@
-# DocBuddy
+# DocBuddy 📝🤖
 
-DocBuddy is a full-stack RAG (Retrieval-Augmented Generation) application built to fulfill the requirements of Assignment 03. It is a personalized version of Google NotebookLM, allowing users to upload documents and have grounded, context-aware conversations with them.
+DocBuddy is a full-stack, production-ready **Retrieval-Augmented Generation (RAG)** application. Designed as a personalized version of Google's NotebookLM, it allows users to upload their own documents (PDFs, TXTs, CSVs) and have highly grounded, context-aware conversations with them.
 
-## 🚀 What was Built
+It features a sleek, minimalist dark-mode UI with inline NotebookLM-style citations that let you instantly trace AI answers back to their exact source documents.
 
-A complete, end-to-end RAG pipeline featuring:
+---
 
-- **Ingestion:** Memory-based file upload handling for PDF, TXT, and CSV.
-- **Parsing & Extraction:** High-fidelity document parsing using **LlamaParse** (primary) with local `pdf-parse` and `CSVLoader` fallbacks.
-- **Chunking Strategy:** Implemented **Recursive Character Text Splitting** (Chunk Size: 1000, Overlap: 200) to maintain semantic context across segments.
-- **Embedding:** Utilized **Hugging Face Inference API** (`sentence-transformers/all-MiniLM-L6-v2`) to generate vector representations of document chunks.
-- **Vector Storage:** Integrated **Qdrant Cloud** as the vector database for efficient semantic indexing and retrieval.
-- **Retrieval:** Semantic search implementation to fetch the most relevant document segments based on user queries.
-- **Generation:** Grounded answer generation using **Groq (Llama 3.1)**, constrained by a strict system prompt to ensure responses are derived solely from the retrieved context.
+## ✨ Key Features
 
-## 🛠 Tech Stack
+- **Sleek Minimalist UI:** A beautiful, dark-themed interface built with Tailwind CSS, focusing purely on reading and chatting.
+- **NotebookLM-Style Citations:** The AI cites its claims with small badges (e.g., `[1]`). Hovering over these badges reveals the exact chunk of text and the source file it used to generate the answer.
+- **Persistent State:** Chat history and knowledge base metadata are automatically saved to your browser's local storage so you don't lose your work on refresh.
+- **Zero-Duplicate Ingestion:** Uploading the same file automatically wipes old versions to keep your vector database clean.
+- **Smart Query Rewriting:** Before searching, the AI silently rewrites your raw question into an optimized semantic search query, drastically improving retrieval accuracy.
 
-- **Frontend:** React, TypeScript, Vite, Tailwind CSS, Lucide React.
-- **Backend:** Node.js, Express, TypeScript.
-- **Orchestration:** LangChain.js.
-- **Vector Database:** Qdrant Cloud.
-- **LLM:** Groq API (Llama 3.1).
+---
+
+## 🏗 Architecture & Tech Stack
+
+The project follows a Monorepo architecture separating the frontend and backend.
+
+### Frontend
+
+- **React 18 & TypeScript**
+- **Vite** for fast bundling
+- **Tailwind CSS** for modern, responsive styling
+- **Lucide React** for crisp, scalable icons
+
+### Backend
+
+- **Node.js & Express** with TypeScript
+- **LangChain.js** for AI orchestration and text splitting
+- **Qdrant Cloud** for lightning-fast Vector Database operations
+- **Hugging Face (`all-MiniLM-L6-v2`)** for creating high-quality document embeddings
+- **Groq (Llama 3.1 8B/70B)** for blazing-fast LLM inference
+- **LlamaParse & PDF-Parse** for robust document ingestion
+
+---
 
 ## ⚙️ Setup & Installation
 
 ### Prerequisites
 
-- Node.js (v18+)
-- API Keys: Groq, LlamaCloud, Qdrant, and Hugging Face.
+Make sure you have **Node.js (v18+)** installed. You will also need API keys from the following services:
 
-### Steps
+1. **Groq API Key** (for Llama 3.1)
+2. **Hugging Face Token** (for Inference Embeddings)
+3. **Qdrant Cloud URL & API Key** (for the Vector Database)
+4. **LlamaCloud API Key** (for LlamaParse PDF extraction)
 
-1. **Clone & Install:**
-   ```bash
-   git clone https://github.com/vimalyad/doc-buddy
-   npm install
-   ```
-2. **Environment Configuration:**
-   Configure a `.env` file in the root directory (refer to `.env.example`).
-3. **Run Application:**
-   ```bash
-   npm run dev
-   ```
+### 1. Clone the Repository
 
-## 🏗 Architecture & Code Quality
+```bash
+git clone https://github.com/vimalyad/doc-buddy.git
+cd doc-buddy
+```
 
-The project follows **SOLID principles** for maintainable and understandable code. It uses a **Monorepo architecture** with NPM workspaces for a clean separation of concerns between the frontend and backend. Security headers and CORS are managed via `helmet` and `cors` for production readiness.
+### 2. Install Dependencies
 
-## 🔗 Submission Links
+Install dependencies for both the frontend and backend.
 
-- **GitHub Repository:** [https://github.com/vimalyad/doc-buddy]
-- **Live Project:** [Insert Live Deployment Link Here]
+```bash
+# In the root directory (if using npm workspaces) or inside both folders:
+npm install
+```
+
+### 3. Environment Variables
+
+Create a `.env` file in the **root** of the project and add your API keys:
+
+```env
+# Server
+PORT=3000
+
+# LLM & Parsers
+GROQ_API_KEY="your_groq_api_key"
+LLAMA_CLOUD_API_KEY="your_llamacloud_api_key"
+
+# Vector Database
+QDRANT_URL="your_qdrant_cluster_url"
+QDRANT_API_KEY="your_qdrant_api_key"
+QDRANT_COLLECTION_NAME="docbuddy_documents"
+
+# Embeddings
+HUGGINGFACEHUB_API_KEY="your_hf_token"
+```
+
+### 4. Running the Application
+
+You need to run both the backend and frontend servers.
+
+**Start the Backend:**
+
+```bash
+cd backend
+npm run dev
+```
+
+**Start the Frontend:**
+
+```bash
+cd frontend
+npm run dev
+```
+
+The application will be available at `http://localhost:5173`.
+
+---
+
+## 💡 How to Use
+
+1. **Upload a Document:** On the left sidebar, click "Select file" or drag-and-drop a PDF, TXT, or CSV file. The backend will parse, split, embed, and store the document in Qdrant.
+2. **Ask a Question:** Type a question in the chat interface.
+3. **Check the Sources:** When DocBuddy answers, look for the small citation numbers (e.g., `[1]`). Hover over them to see the exact text it referenced.
+4. **Clear Chat:** Use the "Clear Chat" button in the top right to wipe your local conversation history.
+5. **Delete Sources:** Click the "X" next to an uploaded document to permanently remove it from the vector database.
+
+_Note: Every time the backend server restarts, the Qdrant database is automatically wiped to ensure a completely fresh slate for development._
