@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Send, User, Bot, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Send, User, Bot, Loader2, Trash2 } from "lucide-react";
 
 interface RetrievedChunk {
   id: string;
@@ -53,18 +53,51 @@ function SourceTooltip({
   );
 }
 
+const STORAGE_KEY = "docbuddy_chat";
+
+const DEFAULT_MESSAGE: Message = {
+  id: "1",
+  role: "assistant",
+  content:
+    "Hello! I'm DocBuddy. Upload a document and ask me anything about it.",
+  timestamp: new Date(),
+};
+
+function loadMessages(): Message[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [DEFAULT_MESSAGE];
+    const parsed = JSON.parse(raw) as (Omit<Message, "timestamp"> & {
+      timestamp: string;
+    })[];
+    return parsed.map((m) => ({ ...m, timestamp: new Date(m.timestamp) }));
+  } catch {
+    return [DEFAULT_MESSAGE];
+  }
+}
+
 export function ChatInterface() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "assistant",
-      content:
-        "Hello! I'm DocBuddy. Upload a document and ask me anything about it.",
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(loadMessages);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Persist messages to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+  }, [messages]);
+
+  // Auto-scroll to the bottom on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isLoading]);
+
+  const clearChat = () => {
+    const fresh = [
+      { ...DEFAULT_MESSAGE, id: Date.now().toString(), timestamp: new Date() },
+    ];
+    setMessages(fresh);
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -122,7 +155,10 @@ export function ChatInterface() {
     }
   };
 
-  const renderMessageContent = (content: string, matches: RetrievedChunk[] = []) => {
+  const renderMessageContent = (
+    content: string,
+    matches: RetrievedChunk[] = [],
+  ) => {
     const parts = content.split(/(\[\d+\])/g);
     return parts.map((part, index) => {
       const citationMatch = part.match(/\[(\d+)\]/);
@@ -144,18 +180,29 @@ export function ChatInterface() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full max-w-4xl bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-slate-900 overflow-hidden">
       {/* Header */}
       <div className="px-6 py-4 border-b border-slate-800 bg-slate-900 flex items-center justify-between">
         <h2 className="text-sm font-bold text-white flex items-center gap-2">
           <Bot className="w-4 h-4 text-blue-500" />
           Intelligence Console
         </h2>
-        <div className="flex gap-1 items-center">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
-            Active Session
-          </span>
+        <div className="flex gap-3 items-center">
+          <button
+            onClick={clearChat}
+            title="Clear chat history"
+            className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-tighter hover:text-red-400 transition-colors"
+          >
+            <Trash2 className="w-3 h-3" />
+            Clear
+          </button>
+          <div className="w-px h-4 bg-slate-700" />
+          <div className="flex gap-1 items-center">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
+              Active Session
+            </span>
+          </div>
         </div>
       </div>
 
@@ -204,6 +251,7 @@ export function ChatInterface() {
             </div>
           </div>
         ))}
+        <div ref={messagesEndRef} />
         {isLoading && (
           <div className="flex items-start gap-4">
             <div className="flex-none w-8 h-8 rounded-lg bg-slate-800 text-slate-400 flex items-center justify-center">

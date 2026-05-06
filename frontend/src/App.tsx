@@ -31,7 +31,7 @@ function App() {
         </aside>
 
         {/* Right Content: Chat Interface */}
-        <section className="flex-1 flex flex-col items-center justify-center p-6 lg:p-10 bg-slate-950 overflow-y-auto">
+        <section className="flex-1 flex flex-col bg-slate-950 overflow-hidden">
           <ChatInterface />
         </section>
       </div>

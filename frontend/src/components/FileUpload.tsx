@@ -1,12 +1,6 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import type { ChangeEvent, DragEvent } from "react";
-import {
-  CheckCircle2,
-  FileText,
-  Loader2,
-  Upload,
-  XCircle,
-} from "lucide-react";
+import { CheckCircle2, FileText, Loader2, Upload, XCircle } from "lucide-react";
 
 const ACCEPTED_TYPES = ["application/pdf", "text/plain", "text/csv"];
 const ACCEPTED_EXTENSIONS = [".pdf", ".txt", ".csv"];
@@ -32,12 +26,45 @@ const isAcceptedFile = (file: File): boolean => {
   );
 };
 
+const FILE_STORAGE_KEY = "docbuddy_file";
+
+// We can't persist the File object itself, so we store its display metadata
+interface PersistedFile {
+  name: string;
+  size: number;
+}
+
 export function FileUpload() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  // `file` holds the real File when freshly picked; `persistedFile` holds metadata across reloads
   const [file, setFile] = useState<File | null>(null);
+  const [persistedFile, setPersistedFile] = useState<PersistedFile | null>(
+    () => {
+      try {
+        const raw = localStorage.getItem(FILE_STORAGE_KEY);
+        return raw ? (JSON.parse(raw) as PersistedFile) : null;
+      } catch {
+        return null;
+      }
+    },
+  );
   const [error, setError] = useState<string | null>(null);
+
+  // Keep localStorage in sync whenever persistedFile changes
+  useEffect(() => {
+    if (persistedFile) {
+      localStorage.setItem(FILE_STORAGE_KEY, JSON.stringify(persistedFile));
+    } else {
+      localStorage.removeItem(FILE_STORAGE_KEY);
+    }
+  }, [persistedFile]);
+
+  // The displayed file entry (prefer real File, fall back to persisted metadata)
+  const displayFile: PersistedFile | null = file
+    ? { name: file.name, size: file.size }
+    : persistedFile;
 
   const selectFile = async (nextFile: File) => {
     if (!isAcceptedFile(nextFile)) {
@@ -67,7 +94,8 @@ export function FileUpload() {
         );
       }
 
-      // Success! The file is now embedded in Qdrant
+      // Success! The file is now embedded in Qdrant — persist metadata
+      setPersistedFile({ name: nextFile.name, size: nextFile.size });
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error
@@ -98,14 +126,13 @@ export function FileUpload() {
   };
 
   const clearFile = async () => {
-    if (file) {
+    const nameToDelete = file?.name ?? persistedFile?.name;
+    if (nameToDelete) {
       try {
         await fetch("/api/delete", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ source: file.name }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ source: nameToDelete }),
         });
       } catch (err) {
         console.error("Failed to sync deletion with vector store:", err);
@@ -113,6 +140,7 @@ export function FileUpload() {
     }
 
     setFile(null);
+    setPersistedFile(null);
     setError(null);
     setIsLoading(false);
 
@@ -182,17 +210,22 @@ export function FileUpload() {
       </div>
 
       <div className="mt-6 space-y-3">
-        {file && (
+        {displayFile && (
           <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3 shadow-sm">
             <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400">
               <FileText className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-[12px] font-bold text-slate-200">
-                {file.name}
+                {displayFile.name}
               </p>
               <p className="text-[10px] font-medium text-slate-500">
-                {formatFileSize(file.size)}
+                {formatFileSize(displayFile.size)}
+                {!file && persistedFile && (
+                  <span className="ml-2 text-blue-500">
+                    · Restored from session
+                  </span>
+                )}
               </p>
             </div>
             {isLoading ? (
