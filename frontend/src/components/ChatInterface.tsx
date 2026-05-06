@@ -64,6 +64,7 @@ function SourceTooltip({
 }
 
 const STORAGE_KEY = "docbuddy_chat";
+const API_URL = import.meta.env.VITE_API_URL || "";
 
 const DEFAULT_MESSAGE: Message = {
   id: "1",
@@ -124,7 +125,7 @@ export function ChatInterface() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post("/api/ask", { question: input });
+      const response = await axios.post(`${API_URL}/api/ask`, { question: input });
       const data = response.data;
 
       const assistantMessage: Message = {
