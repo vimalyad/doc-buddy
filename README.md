@@ -2,10 +2,6 @@
 
 DocBuddy is a full-stack RAG (Retrieval-Augmented Generation) application built to fulfill the requirements of Assignment 03. It is a personalized version of Google NotebookLM, allowing users to upload documents and have grounded, context-aware conversations with them.
 
-## 📄 Problem Statement
-
-The goal was to build an application where a user can upload any document (PDF, TXT, or CSV), which the system processes and stores intelligently. The user can then ask natural language questions and receive answers strictly grounded in the document's actual content, preventing hallucinations.
-
 ## 🚀 What was Built
 
 A complete, end-to-end RAG pipeline featuring:
@@ -37,7 +33,7 @@ A complete, end-to-end RAG pipeline featuring:
 
 1. **Clone & Install:**
    ```bash
-   git clone <repo-url>
+   git clone https://github.com/vimalyad/doc-buddy
    npm install
    ```
 2. **Environment Configuration:**
@@ -53,5 +49,5 @@ The project follows **SOLID principles** for maintainable and understandable cod
 
 ## 🔗 Submission Links
 
-- **GitHub Repository:** [Insert Repository Link Here]
+- **GitHub Repository:** [https://github.com/vimalyad/doc-buddy]
 - **Live Project:** [Insert Live Deployment Link Here]
