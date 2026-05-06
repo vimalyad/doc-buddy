@@ -11,7 +11,7 @@ import { deleteDocument } from "./controllers/deleteController";
 import { getFiles } from "./controllers/fileController";
 import { upload } from "./middleware/upload";
 import { resetQdrantCollection } from "./config/vectorStore";
-import { resetDb } from "./config/database";
+import { initDb, resetDb } from "./config/database";
 
 // Load environment variables from backend/.env or root .env
 const envPath = fs.existsSync(".env")
@@ -62,6 +62,7 @@ app.listen(port, async () => {
   console.log(`Server is running on port ${port}`);
   
   try {
+    await initDb();
     await resetDb();
     await resetQdrantCollection();
   } catch (err) {
