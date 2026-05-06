@@ -22,7 +22,9 @@
     "form-data": "^4.0.5",
     "helmet": "^8.1.0",
     "multer": "^2.1.1",
-    "pdf-parse": "^2.4.5"
+    "pdf-parse": "^2.4.5",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^6.0.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

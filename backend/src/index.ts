@@ -8,8 +8,10 @@ import helmet from "helmet";
 import { askQuestion } from "./controllers/askController";
 import { uploadDocument } from "./controllers/uploadController";
 import { deleteDocument } from "./controllers/deleteController";
+import { getFiles } from "./controllers/fileController";
 import { upload } from "./middleware/upload";
 import { resetQdrantCollection } from "./config/vectorStore";
+import { resetDb } from "./config/database";
 
 // Load environment variables from backend/.env or root .env
 const envPath = fs.existsSync(".env")
@@ -53,13 +55,14 @@ app.post(
 );
 
 app.post("/api/ask", askQuestion);
-
 app.post("/api/delete", deleteDocument);
+app.get("/api/files", getFiles);
 
 app.listen(port, async () => {
   console.log(`Server is running on port ${port}`);
   
   try {
+    await resetDb();
     await resetQdrantCollection();
   } catch (err) {
     console.error("Failed to reset Qdrant collection on startup:", err);

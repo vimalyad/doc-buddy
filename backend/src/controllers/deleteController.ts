@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { deleteDocumentBySource } from "../services/documentVectorStore";
+import { getDb } from "../config/database";
 
 export const deleteDocument = async (
   req: Request,
@@ -14,6 +15,10 @@ export const deleteDocument = async (
 
   try {
     await deleteDocumentBySource(source);
+
+    const db = await getDb();
+    await db.run("DELETE FROM files WHERE name = ?", [source]);
+
     res.status(200).json({ message: `Successfully deleted ${source}` });
   } catch (error) {
     const message =
