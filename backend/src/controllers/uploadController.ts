@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { parseLocalDocument } from "../parsers/localParsers";
 import { splitDocuments, splitterConfig } from "../parsers/textSplitter";
-import { upsertDocumentChunks } from "../services/documentVectorStore";
+import { upsertDocumentChunks, deleteDocumentBySource } from "../services/documentVectorStore";
 
 export const uploadDocument = async (
   req: Request,
@@ -15,6 +15,8 @@ export const uploadDocument = async (
   try {
     const documents = await parseLocalDocument(req.file);
     const chunks = await splitDocuments(documents);
+
+    await deleteDocumentBySource(req.file.originalname);
     const storedChunks = await upsertDocumentChunks(chunks);
 
     res.status(200).json({

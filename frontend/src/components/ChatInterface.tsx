@@ -26,26 +26,24 @@ function SourceTooltip({
   index: number;
 }) {
   const [show, setShow] = useState(false);
+
   return (
     <span className="relative inline-block mx-0.5 group">
       <button
         onMouseEnter={() => setShow(true)}
         onMouseLeave={() => setShow(false)}
-        className="w-4 h-4 text-[9px] font-bold bg-slate-700 text-slate-400 rounded-md inline-flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+        className="w-4 h-4 text-[9px] font-bold bg-neutral-800 text-neutral-400 rounded-full inline-flex items-center justify-center hover:bg-neutral-700 hover:text-white transition-all shadow-sm align-super"
       >
         {index}
       </button>
       {show && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-4 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-1">
-          <div className="text-[10px] font-bold text-white mb-2 pb-2 border-b border-slate-700/50 truncate flex items-center justify-between">
-            <span>{match.source}</span>
-            <span className="text-slate-500">Chunk #{match.chunkIndex}</span>
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-3 bg-neutral-900 border border-neutral-800 rounded-lg shadow-xl z-50 animate-in fade-in slide-in-from-bottom-1">
+          <div className="text-[11px] font-medium text-neutral-300 mb-2 pb-2 border-b border-neutral-800 flex items-center justify-between">
+            <span className="truncate pr-2">{match.source}</span>
+            <span className="text-neutral-500 whitespace-nowrap">Chunk #{match.chunkIndex}</span>
           </div>
-          <div className="text-[11px] leading-relaxed text-slate-300 italic line-clamp-6">
-            "{match.pageContent}"
-          </div>
-          <div className="mt-3 text-[9px] font-bold text-blue-500 uppercase tracking-tighter">
-            View full source
+          <div className="text-[12px] leading-relaxed text-neutral-400">
+            "{match.pageContent.length > 200 ? match.pageContent.substring(0, 200) + "..." : match.pageContent}"
           </div>
         </div>
       )}
@@ -180,87 +178,59 @@ export function ChatInterface() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-slate-900 overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-[#0a0a0a] overflow-hidden text-neutral-200">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-slate-800 bg-slate-900 flex items-center justify-between">
-        <h2 className="text-sm font-bold text-white flex items-center gap-2">
-          <Bot className="w-4 h-4 text-blue-500" />
-          Intelligence Console
+      <div className="px-8 py-5 border-b border-neutral-900 bg-[#0a0a0a] flex items-center justify-between">
+        <h2 className="text-[15px] font-medium text-neutral-400">
+          Chat
         </h2>
-        <div className="flex gap-3 items-center">
-          <button
-            onClick={clearChat}
-            title="Clear chat history"
-            className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-tighter hover:text-red-400 transition-colors"
-          >
-            <Trash2 className="w-3 h-3" />
-            Clear
-          </button>
-          <div className="w-px h-4 bg-slate-700" />
-          <div className="flex gap-1 items-center">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
-              Active Session
-            </span>
-          </div>
-        </div>
+        <button
+          onClick={clearChat}
+          title="Clear chat history"
+          className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors flex items-center gap-2"
+        >
+          <Trash2 className="w-4 h-4" />
+          Clear Chat
+        </button>
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-950/50">
+      <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-[#0a0a0a]">
         {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex items-start gap-4 ${
-              message.role === "user" ? "flex-row-reverse" : ""
-            }`}
-          >
-            <div
-              className={`flex-none w-8 h-8 rounded-lg flex items-center justify-center ${
-                message.role === "user"
-                  ? "bg-blue-600 text-white"
-                  : "bg-slate-800 text-slate-400"
-              }`}
-            >
+          <div key={message.id} className="flex gap-6 max-w-3xl mx-auto w-full">
+            <div className="flex-none w-7 h-7 flex items-center justify-center mt-0.5">
               {message.role === "user" ? (
-                <User className="w-4 h-4" />
+                <div className="w-full h-full rounded-sm bg-neutral-200 text-neutral-900 flex items-center justify-center">
+                  <User className="w-4 h-4" />
+                </div>
               ) : (
-                <Bot className="w-4 h-4" />
+                <div className="w-full h-full rounded-sm bg-neutral-800 text-neutral-300 flex items-center justify-center border border-neutral-700">
+                  <Bot className="w-4 h-4" />
+                </div>
               )}
             </div>
-            <div
-              className={`flex flex-col max-w-[85%] ${
-                message.role === "user" ? "items-end" : ""
-              }`}
-            >
-              <div
-                className={`px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
-                  message.role === "user"
-                    ? "bg-blue-600 text-white rounded-tr-none"
-                    : "bg-slate-800 text-slate-200 border border-slate-700 rounded-tl-none"
-                }`}
-              >
+            <div className="flex-1 space-y-1.5">
+              <div className="font-medium text-[14px] text-neutral-500">
+                {message.role === "user" ? "You" : "DocBuddy"}
+              </div>
+              <div className="text-[15px] leading-relaxed text-neutral-300">
                 {renderMessageContent(message.content, message.matches)}
               </div>
-              <span className="mt-1 text-[9px] font-bold text-slate-600 px-1 uppercase tracking-tight">
-                {message.timestamp.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
             </div>
           </div>
         ))}
         <div ref={messagesEndRef} />
         {isLoading && (
-          <div className="flex items-start gap-4">
-            <div className="flex-none w-8 h-8 rounded-lg bg-slate-800 text-slate-400 flex items-center justify-center">
-              <Bot className="w-4 h-4" />
+          <div className="flex gap-6 max-w-3xl mx-auto w-full">
+            <div className="flex-none w-7 h-7 flex items-center justify-center mt-0.5">
+              <div className="w-full h-full rounded-sm bg-neutral-800 text-neutral-300 flex items-center justify-center border border-neutral-700">
+                <Bot className="w-4 h-4" />
+              </div>
             </div>
-            <div className="px-4 py-3 rounded-2xl bg-slate-800 border border-slate-700 rounded-tl-none shadow-sm flex items-center gap-2">
-              <Loader2 className="w-3 h-3 animate-spin text-blue-500" />
-              <span className="text-[11px] text-slate-400 font-medium italic">
-                Scanning knowledge base...
+            <div className="flex-1 flex items-center gap-2 pt-1">
+              <Loader2 className="w-4 h-4 animate-spin text-neutral-600" />
+              <span className="text-[14px] text-neutral-500">
+                Thinking...
               </span>
             </div>
           </div>
@@ -268,34 +238,25 @@ export function ChatInterface() {
       </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-slate-900 border-t border-slate-800">
-        <div className="relative flex items-center max-w-3xl mx-auto w-full px-2">
+      <div className="p-6 bg-[#0a0a0a]">
+        <div className="relative flex items-center max-w-3xl mx-auto w-full">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Start typing..."
+            placeholder="Ask a question..."
             disabled={isLoading}
-            className="w-full pl-5 pr-14 py-4 bg-slate-950 border border-slate-800 rounded-2xl text-sm text-slate-200 placeholder:text-slate-600 focus:ring-0 focus:border-slate-700 transition-all outline-none disabled:opacity-50"
+            className="w-full pl-5 pr-14 py-4 bg-neutral-900 border border-neutral-800 rounded-xl text-base text-neutral-200 placeholder:text-neutral-500 focus:ring-1 focus:ring-neutral-700 focus:border-neutral-700 transition-all outline-none disabled:opacity-50"
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className="absolute right-4 p-2 bg-slate-800 text-slate-400 rounded-xl hover:bg-blue-600 hover:text-white disabled:bg-slate-900 disabled:text-slate-700 disabled:cursor-not-allowed transition-all shadow-lg"
+            className="absolute right-3 p-2 text-neutral-500 hover:text-neutral-200 disabled:text-neutral-700 disabled:cursor-not-allowed transition-colors"
             aria-label="Send message"
           >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
+            <Send className="w-4 h-4" />
           </button>
-        </div>
-        <div className="mt-2 px-6 flex justify-end">
-          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-tighter">
-            {messages.length > 1 ? "Grounded in sources" : ""}
-          </span>
         </div>
       </div>
     </div>

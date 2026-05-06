@@ -1,5 +1,6 @@
 import { getChatModel } from "../config/groq";
 import { buildGroundedRagPrompt } from "../prompts/groundedRagPrompt";
+import { buildQueryRewritePrompt } from "../prompts/queryRewritePrompt";
 import { RetrievedChunk, searchSimilarChunks } from "./documentVectorStore";
 
 type SourceMetadata = {
@@ -14,6 +15,7 @@ type QaResponse = {
   answer: string;
   sources: SourceMetadata[];
   matches: RetrievedChunk[];
+  rewrittenQuery?: string;
 };
 
 const formatContext = (matches: RetrievedChunk[]): string =>
@@ -67,18 +69,36 @@ const buildSources = (matches: RetrievedChunk[]): SourceMetadata[] =>
     metadata: match.metadata,
   }));
 
+/**
+ * Rewrites the user's raw question into a retrieval-optimised search query.
+ * Falls back to the original question if the rewrite fails or returns empty.
+ */
+const rewriteQuery = async (question: string): Promise<string> => {
+  try {
+    const prompt = buildQueryRewritePrompt(question);
+    const response = await getChatModel().invoke(prompt);
+    const rewritten = extractAnswerText(response.content).trim();
+    return rewritten.length > 0 ? rewritten : question;
+  } catch (err) {
+    return question;
+  }
+};
+
 export const answerQuestion = async (
   question: string,
   limit: number,
 ): Promise<QaResponse> => {
-  const matches = await searchSimilarChunks(question, limit);
+  const rewrittenQuery = await rewriteQuery(question);
+  const matches = await searchSimilarChunks(rewrittenQuery, limit);
   const context = formatContext(matches);
   const prompt = buildGroundedRagPrompt(question, context);
   const response = await getChatModel().invoke(prompt);
+  const answer = extractAnswerText(response.content);
 
   return {
-    answer: extractAnswerText(response.content),
+    answer,
     sources: buildSources(matches),
     matches,
+    rewrittenQuery,
   };
 };

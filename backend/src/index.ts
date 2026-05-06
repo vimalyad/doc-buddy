@@ -9,6 +9,7 @@ import { askQuestion } from "./controllers/askController";
 import { uploadDocument } from "./controllers/uploadController";
 import { deleteDocument } from "./controllers/deleteController";
 import { upload } from "./middleware/upload";
+import { resetQdrantCollection } from "./config/vectorStore";
 
 // Load environment variables from backend/.env or root .env
 const envPath = fs.existsSync(".env")
@@ -55,6 +56,12 @@ app.post("/api/ask", askQuestion);
 
 app.post("/api/delete", deleteDocument);
 
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`Server is running on port ${port}`);
+  
+  try {
+    await resetQdrantCollection();
+  } catch (err) {
+    console.error("Failed to reset Qdrant collection on startup:", err);
+  }
 });
