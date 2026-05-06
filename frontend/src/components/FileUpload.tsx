@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import type { ChangeEvent, DragEvent } from "react";
+import axios from "axios";
 import { CheckCircle2, FileText, Loader2, Upload, XCircle } from "lucide-react";
 
 const ACCEPTED_TYPES = ["application/pdf", "text/plain", "text/csv"];
@@ -81,26 +82,17 @@ export function FileUpload() {
       const formData = new FormData();
       formData.append("file", nextFile);
 
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.error ||
-            "Ingestion failed. Please check your backend logs.",
-        );
-      }
+      await axios.post("/api/upload", formData);
 
       // Success! The file is now embedded in Qdrant — persist metadata
       setPersistedFile({ name: nextFile.name, size: nextFile.size });
-    } catch (err: unknown) {
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : "An unexpected error occurred during upload.";
+    } catch (err) {
+      let errorMessage = "An unexpected error occurred during upload.";
+      if (axios.isAxiosError(err)) {
+        errorMessage = err.response?.data?.error || err.message;
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
       setError(errorMessage);
       setFile(null);
     } finally {
@@ -129,11 +121,7 @@ export function FileUpload() {
     const nameToDelete = file?.name ?? persistedFile?.name;
     if (nameToDelete) {
       try {
-        await fetch("/api/delete", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ source: nameToDelete }),
-        });
+        await axios.post("/api/delete", { source: nameToDelete });
       } catch (err) {
         console.error("Failed to sync deletion with vector store:", err);
       }

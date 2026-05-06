@@ -1,6 +1,6 @@
 import { Document } from "@langchain/core/documents";
 import { CSVLoader } from "@langchain/community/document_loaders/fs/csv";
-import { PDFParse } from "pdf-parse";
+import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 
 type SupportedLocalFileType = "pdf" | "txt" | "csv";
 
@@ -26,22 +26,20 @@ const buildMetadata = (
 });
 
 const parsePdf = async (file: Express.Multer.File): Promise<Document[]> => {
-  const parser = new PDFParse({ data: file.buffer });
+  const pdfBlob = new Blob([new Uint8Array(file.buffer)], {
+    type: file.mimetype || "application/pdf",
+  });
+  
+  const loader = new PDFLoader(pdfBlob, { splitPages: true });
+  const documents = await loader.load();
 
-  try {
-    const parsedPdf = await parser.getText();
-
-    return [
+  return documents.map(
+    (document) =>
       new Document({
-        pageContent: parsedPdf.text,
-        metadata: buildMetadata(file, "pdf-parse", {
-          totalPages: parsedPdf.total,
-        }),
+        pageContent: document.pageContent,
+        metadata: buildMetadata(file, "PDFLoader", document.metadata),
       }),
-    ];
-  } finally {
-    await parser.destroy();
-  }
+  );
 };
 
 const parseTxt = async (file: Express.Multer.File): Promise<Document[]> => [

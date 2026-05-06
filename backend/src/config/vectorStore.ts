@@ -19,6 +19,12 @@ export const ensureQdrantCollection = async (): Promise<void> => {
       distance: QDRANT_DISTANCE,
     },
   });
+
+  await client.createPayloadIndex(QDRANT_COLLECTION_NAME, {
+    field_name: "source",
+    field_schema: "keyword",
+    wait: true,
+  });
 };
 
 export const resetQdrantCollection = async (): Promise<void> => {
