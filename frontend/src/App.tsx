@@ -11,7 +11,6 @@ function App() {
             src="/logo.png"
             alt="DocBuddy Logo"
             className="h-8 object-contain"
-            style={{ filter: "brightness(0) invert(1)" }}
           />
           <span className="text-sm font-semibold tracking-wide text-neutral-200">
             DocBuddy
