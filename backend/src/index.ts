@@ -2,6 +2,7 @@ import express, { Request, Response } from "express";
 import dotenv from "dotenv";
 import { upload } from "./middleware/upload";
 import { parseLocalDocument } from "./parsers/localParsers";
+import { splitDocuments, splitterConfig } from "./parsers/textSplitter";
 
 dotenv.config();
 
@@ -29,11 +30,14 @@ app.post(
 
     try {
       const documents = await parseLocalDocument(req.file);
+      const chunks = await splitDocuments(documents);
 
       res.status(200).json({
         message: "File uploaded successfully",
         file: req.file.originalname,
         documents: documents.length,
+        chunks: chunks.length,
+        splitter: splitterConfig,
       });
     } catch (error) {
       const message =
