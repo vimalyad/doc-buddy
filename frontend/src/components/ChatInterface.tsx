@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Send, User, Bot } from "lucide-react";
+import { Send, User, Bot, Loader2 } from "lucide-react";
 
 interface Message {
   id: string;
@@ -60,13 +60,16 @@ export function ChatInterface() {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessageText =
+        err instanceof Error
+          ? err.message
+          : "Sorry, I encountered an error while processing your request.";
+
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content:
-          err.message ||
-          "Sorry, I encountered an error while processing your request.",
+        content: errorMessageText,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);

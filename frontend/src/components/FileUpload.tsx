@@ -62,8 +62,12 @@ export function FileUpload() {
       }
 
       // Success! The file is now embedded in Qdrant
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred during upload.");
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred during upload.";
+      setError(errorMessage);
       setFile(null);
     } finally {
       setIsLoading(false);
