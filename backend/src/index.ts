@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import { upload } from "./middleware/upload";
 import { parseLocalDocument } from "./parsers/localParsers";
 import { splitDocuments, splitterConfig } from "./parsers/textSplitter";
+import { upsertDocumentChunks } from "./services/documentVectorStore";
 
 dotenv.config();
 
@@ -31,12 +32,14 @@ app.post(
     try {
       const documents = await parseLocalDocument(req.file);
       const chunks = await splitDocuments(documents);
+      const storedChunks = await upsertDocumentChunks(chunks);
 
       res.status(200).json({
         message: "File uploaded successfully",
         file: req.file.originalname,
         documents: documents.length,
         chunks: chunks.length,
+        storedChunks: storedChunks.length,
         splitter: splitterConfig,
       });
     } catch (error) {
