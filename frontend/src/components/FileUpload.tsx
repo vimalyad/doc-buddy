@@ -33,7 +33,7 @@ export function FileUpload() {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const selectFile = (nextFile: File) => {
+  const selectFile = async (nextFile: File) => {
     if (!isAcceptedFile(nextFile)) {
       setFile(null);
       setError("Only PDF, TXT, and CSV files are supported.");
@@ -43,7 +43,31 @@ export function FileUpload() {
     setError(null);
     setFile(nextFile);
     setIsLoading(true);
-    window.setTimeout(() => setIsLoading(false), 700);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", nextFile);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error ||
+            "Ingestion failed. Please check your backend logs.",
+        );
+      }
+
+      // Success! The file is now embedded in Qdrant
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred during upload.");
+      setFile(null);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
