@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { parseLocalDocument } from "../parsers/localParsers";
 import { splitDocuments, splitterConfig } from "../parsers/textSplitter";
 import { upsertDocumentChunks, deleteDocumentBySource } from "../services/documentVectorStore";
+import { getDb } from "../config/database";
 
 export const uploadDocument = async (
   req: Request,
@@ -18,6 +19,12 @@ export const uploadDocument = async (
 
     await deleteDocumentBySource(req.file.originalname);
     const storedChunks = await upsertDocumentChunks(chunks);
+
+    const db = await getDb();
+    await db.run(
+      "INSERT OR REPLACE INTO files (name, size) VALUES (?, ?)",
+      [req.file.originalname, req.file.size]
+    );
 
     res.status(200).json({
       message: "File uploaded successfully",

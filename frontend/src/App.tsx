@@ -7,12 +7,7 @@ function App() {
       {/* Top Navigation Bar */}
       <header className="flex-none px-6 py-4 bg-[#0a0a0a] border-b border-neutral-900 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-6 h-6 bg-neutral-200 rounded-sm flex items-center justify-center text-[#0a0a0a] font-bold text-xs">
-            D
-          </div>
-          <span className="text-sm font-medium tracking-wide text-neutral-200">
-            DocBuddy
-          </span>
+          <img src="/logo.png" alt="DocBuddy Logo" className="h-6 object-contain" />
         </div>
       </header>
 

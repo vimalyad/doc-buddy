@@ -8,29 +8,16 @@ const ACCEPTED_EXTENSIONS = [".pdf", ".txt", ".csv"];
 const API_URL = import.meta.env.VITE_API_URL || "";
 
 const formatFileSize = (bytes: number): string => {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  }
-
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
 const isAcceptedFile = (file: File): boolean => {
   const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
-
-  return (
-    ACCEPTED_TYPES.includes(file.type) ||
-    ACCEPTED_EXTENSIONS.includes(extension)
-  );
+  return ACCEPTED_TYPES.includes(file.type) || ACCEPTED_EXTENSIONS.includes(extension);
 };
 
-const FILE_STORAGE_KEY = "docbuddy_file";
-
-// We can't persist the File object itself, so we store its display metadata
 interface PersistedFile {
   name: string;
   size: number;
@@ -40,43 +27,29 @@ export function FileUpload() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  // `file` holds the real File when freshly picked; `persistedFile` holds metadata across reloads
-  const [file, setFile] = useState<File | null>(null);
-  const [persistedFile, setPersistedFile] = useState<PersistedFile | null>(
-    () => {
-      try {
-        const raw = localStorage.getItem(FILE_STORAGE_KEY);
-        return raw ? (JSON.parse(raw) as PersistedFile) : null;
-      } catch {
-        return null;
-      }
-    },
-  );
+  const [uploadedFiles, setUploadedFiles] = useState<PersistedFile[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Keep localStorage in sync whenever persistedFile changes
-  useEffect(() => {
-    if (persistedFile) {
-      localStorage.setItem(FILE_STORAGE_KEY, JSON.stringify(persistedFile));
-    } else {
-      localStorage.removeItem(FILE_STORAGE_KEY);
+  const fetchFiles = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/files`);
+      setUploadedFiles(res.data);
+    } catch (err) {
+      console.error("Failed to fetch files from backend:", err);
     }
-  }, [persistedFile]);
+  };
 
-  // The displayed file entry (prefer real File, fall back to persisted metadata)
-  const displayFile: PersistedFile | null = file
-    ? { name: file.name, size: file.size }
-    : persistedFile;
+  useEffect(() => {
+    fetchFiles();
+  }, []);
 
   const selectFile = async (nextFile: File) => {
     if (!isAcceptedFile(nextFile)) {
-      setFile(null);
       setError("Only PDF, TXT, and CSV files are supported.");
       return;
     }
 
     setError(null);
-    setFile(nextFile);
     setIsLoading(true);
 
     try {
@@ -84,9 +57,7 @@ export function FileUpload() {
       formData.append("file", nextFile);
 
       await axios.post(`${API_URL}/api/upload`, formData);
-
-      // Success! The file is now embedded in Qdrant — persist metadata
-      setPersistedFile({ name: nextFile.name, size: nextFile.size });
+      await fetchFiles(); // Refresh the list
     } catch (err) {
       let errorMessage = "An unexpected error occurred during upload.";
       if (axios.isAxiosError(err)) {
@@ -95,46 +66,30 @@ export function FileUpload() {
         errorMessage = err.message;
       }
       setError(errorMessage);
-      setFile(null);
     } finally {
       setIsLoading(false);
+      if (inputRef.current) inputRef.current.value = "";
     }
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setIsDragging(false);
-
     const nextFile = event.dataTransfer.files[0];
-    if (nextFile) {
-      selectFile(nextFile);
-    }
+    if (nextFile) selectFile(nextFile);
   };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0];
-    if (nextFile) {
-      selectFile(nextFile);
-    }
+    if (nextFile) selectFile(nextFile);
   };
 
-  const clearFile = async () => {
-    const nameToDelete = file?.name ?? persistedFile?.name;
-    if (nameToDelete) {
-      try {
-        await axios.post(`${API_URL}/api/delete`, { source: nameToDelete });
-      } catch (err) {
-        console.error("Failed to sync deletion with vector store:", err);
-      }
-    }
-
-    setFile(null);
-    setPersistedFile(null);
-    setError(null);
-    setIsLoading(false);
-
-    if (inputRef.current) {
-      inputRef.current.value = "";
+  const clearFile = async (nameToDelete: string) => {
+    try {
+      await axios.post(`${API_URL}/api/delete`, { source: nameToDelete });
+      await fetchFiles(); // Refresh the list
+    } catch (err) {
+      console.error("Failed to sync deletion with vector store:", err);
     }
   };
 
@@ -199,37 +154,30 @@ export function FileUpload() {
       </div>
 
       <div className="mt-6 space-y-3">
-        {displayFile && (
-          <div className="flex items-center gap-3 rounded-lg border border-neutral-800 bg-neutral-900/50 p-3 shadow-sm">
+        {uploadedFiles.map((fileData) => (
+          <div key={fileData.name} className="flex items-center gap-3 rounded-lg border border-neutral-800 bg-neutral-900/50 p-3 shadow-sm">
             <div className="h-10 w-10 rounded bg-neutral-800 flex items-center justify-center text-neutral-400">
               <FileText className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1 ml-1">
               <p className="truncate text-[14px] font-medium text-neutral-200">
-                {displayFile.name}
+                {fileData.name}
               </p>
               <p className="text-[11px] text-neutral-500 mt-0.5">
-                {formatFileSize(displayFile.size)}
-                {!file && persistedFile && (
-                  <span className="ml-2 text-neutral-400">· Restored</span>
-                )}
+                {formatFileSize(fileData.size)}
               </p>
             </div>
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin text-neutral-500" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4 text-neutral-400" />
-            )}
+            <CheckCircle2 className="h-4 w-4 text-neutral-400" />
             <button
               className="rounded p-2 text-neutral-500 transition hover:bg-neutral-800 hover:text-neutral-300"
               type="button"
-              onClick={clearFile}
+              onClick={() => clearFile(fileData.name)}
               aria-label="Remove selected file"
             >
               <XCircle className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
-        )}
+        ))}
 
         {error && (
           <div className="flex items-start gap-3 rounded-lg border border-red-900/30 bg-red-900/10 p-3 text-[11px] text-red-400">
