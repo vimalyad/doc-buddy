@@ -12,6 +12,7 @@
     "@huggingface/inference": "^4.13.15",
     "@langchain/community": "^1.1.28",
     "@langchain/core": "^1.1.44",
+    "@langchain/groq": "^1.2.0",
     "@langchain/textsplitters": "^1.0.1",
     "@qdrant/js-client-rest": "^1.17.0",
     "axios": "^1.16.0",
