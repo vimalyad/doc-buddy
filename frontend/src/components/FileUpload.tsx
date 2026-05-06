@@ -1,6 +1,12 @@
 import { useRef, useState } from "react";
 import type { ChangeEvent, DragEvent } from "react";
-import { CheckCircle2, FileText, Loader2, Upload, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  FileText,
+  Loader2,
+  Upload,
+  XCircle,
+} from "lucide-react";
 
 const ACCEPTED_TYPES = ["application/pdf", "text/plain", "text/csv"];
 const ACCEPTED_EXTENSIONS = [".pdf", ".txt", ".csv"];
@@ -91,7 +97,21 @@ export function FileUpload() {
     }
   };
 
-  const clearFile = () => {
+  const clearFile = async () => {
+    if (file) {
+      try {
+        await fetch("/api/delete", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ source: file.name }),
+        });
+      } catch (err) {
+        console.error("Failed to sync deletion with vector store:", err);
+      }
+    }
+
     setFile(null);
     setError(null);
     setIsLoading(false);
@@ -102,22 +122,20 @@ export function FileUpload() {
   };
 
   return (
-    <section className="w-full max-w-3xl">
-      <div className="mb-6">
-        <p className="text-sm font-medium uppercase tracking-wide text-slate-500">
-          Source ingestion
+    <section className="w-full">
+      <div className="mb-4">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+          Source Ingestion
         </p>
-        <h1 className="mt-2 text-3xl font-semibold text-slate-950">
-          Upload documents
-        </h1>
+        <h2 className="mt-1 text-xl font-bold text-white">Documents</h2>
       </div>
 
       <div
         className={[
-          "flex min-h-72 flex-col items-center justify-center rounded-lg border-2 border-dashed bg-white px-6 py-10 text-center transition",
+          "flex min-h-40 flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 text-center transition",
           isDragging
-            ? "border-blue-500 bg-blue-50"
-            : "border-slate-300 hover:border-slate-400",
+            ? "border-blue-500 bg-blue-500/10"
+            : "border-slate-800 bg-slate-800/30 hover:border-slate-700 hover:bg-slate-800/50",
         ].join(" ")}
         onDragEnter={(event) => {
           event.preventDefault();
@@ -130,19 +148,19 @@ export function FileUpload() {
         }}
         onDrop={handleDrop}
       >
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-800 text-slate-400 shadow-inner">
           {isLoading ? (
-            <Loader2 className="h-7 w-7 animate-spin" aria-hidden="true" />
+            <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
           ) : (
-            <Upload className="h-7 w-7" aria-hidden="true" />
+            <Upload className="h-5 w-5" aria-hidden="true" />
           )}
         </div>
 
-        <p className="mt-5 text-lg font-medium text-slate-950">
-          Drop a PDF, TXT, or CSV file
+        <p className="mt-3 text-sm font-semibold text-slate-200">
+          Add a source
         </p>
-        <p className="mt-2 max-w-md text-sm text-slate-500">
-          Documents are prepared in the browser before ingestion.
+        <p className="mt-1 text-[11px] text-slate-500 leading-tight">
+          Drop PDF, TXT, or CSV
         </p>
 
         <input
@@ -154,51 +172,48 @@ export function FileUpload() {
         />
 
         <button
-          className="mt-6 inline-flex items-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+          className="mt-4 rounded-lg bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-700"
           type="button"
           disabled={isLoading}
           onClick={() => inputRef.current?.click()}
         >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <Upload className="h-4 w-4" aria-hidden="true" />
-          )}
           Select file
         </button>
       </div>
 
-      <div className="mt-4 min-h-20">
+      <div className="mt-6 space-y-3">
         {file && (
-          <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <FileText className="h-6 w-6 flex-none text-blue-600" />
+          <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3 shadow-sm">
+            <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400">
+              <FileText className="h-4 w-4" />
+            </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-slate-950">
+              <p className="truncate text-[12px] font-bold text-slate-200">
                 {file.name}
               </p>
-              <p className="text-sm text-slate-500">
+              <p className="text-[10px] font-medium text-slate-500">
                 {formatFileSize(file.size)}
               </p>
             </div>
             {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
+              <Loader2 className="h-4 w-4 animate-spin text-slate-600" />
             ) : (
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
             )}
             <button
-              className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+              className="rounded-lg p-1.5 text-slate-600 transition hover:bg-slate-800 hover:text-slate-300"
               type="button"
               onClick={clearFile}
               aria-label="Remove selected file"
             >
-              <XCircle className="h-5 w-5" aria-hidden="true" />
+              <XCircle className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
         )}
 
         {error && (
-          <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            <XCircle className="h-5 w-5 flex-none" aria-hidden="true" />
+          <div className="flex items-start gap-3 rounded-xl border border-red-900/50 bg-red-900/20 p-3 text-[11px] font-medium text-red-400">
+            <XCircle className="h-4 w-4 flex-none" aria-hidden="true" />
             {error}
           </div>
         )}

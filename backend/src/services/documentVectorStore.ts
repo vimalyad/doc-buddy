@@ -109,3 +109,19 @@ export const searchSimilarChunks = async (
     };
   });
 };
+
+export const deleteDocumentBySource = async (source: string): Promise<void> => {
+  await ensureQdrantCollection();
+  await getQdrantClient().delete(QDRANT_COLLECTION_NAME, {
+    filter: {
+      must: [
+        {
+          key: "source",
+          match: {
+            value: source,
+          },
+        },
+      ],
+    },
+  });
+};

@@ -1,47 +1,39 @@
-import { useState } from "react";
 import { FileUpload } from "./components/FileUpload";
 import { ChatInterface } from "./components/ChatInterface";
 
 function App() {
-  const [view, setView] = useState<"upload" | "chat">("upload");
-
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-6xl">
-        <header className="mb-10 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-              D
-            </div>
-            <span className="text-xl font-bold tracking-tight">DocBuddy</span>
+    <main className="h-screen bg-slate-950 flex flex-col overflow-hidden text-slate-100">
+      {/* Top Navigation Bar */}
+      <header className="flex-none px-6 py-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+            D
           </div>
-          <nav className="flex bg-white rounded-lg p-1 border border-slate-200 shadow-sm">
-            <button
-              onClick={() => setView("upload")}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-                view === "upload"
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Upload
-            </button>
-            <button
-              onClick={() => setView("chat")}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-                view === "chat"
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Chat
-            </button>
-          </nav>
-        </header>
-
-        <div className="flex items-center justify-center min-h-[calc(100vh-16rem)]">
-          {view === "upload" ? <FileUpload /> : <ChatInterface />}
+          <span className="text-xl font-bold tracking-tight text-white">
+            DocBuddy
+          </span>
         </div>
+        <div className="flex items-center gap-4">
+          <div className="text-[10px] font-bold text-slate-400 bg-slate-800 px-2 py-1 rounded uppercase tracking-wider">
+            RAG Pipeline v1.0
+          </div>
+        </div>
+      </header>
+
+      {/* Main Workspace */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar: Document Ingestion */}
+        <aside className="w-80 lg:w-96 flex-none border-r border-slate-800 bg-slate-900 overflow-y-auto">
+          <div className="p-6">
+            <FileUpload />
+          </div>
+        </aside>
+
+        {/* Right Content: Chat Interface */}
+        <section className="flex-1 flex flex-col items-center justify-center p-6 lg:p-10 bg-slate-950 overflow-y-auto">
+          <ChatInterface />
+        </section>
       </div>
     </main>
   );
