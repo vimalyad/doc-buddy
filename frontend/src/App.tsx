@@ -11,7 +11,6 @@ function App() {
             src="/favicon.png"
             alt="DocBuddy Icon"
             className="w-8 h-8 object-contain"
-            style={{ mixBlendMode: "screen" }}
           />
           <span className="text-[15px] font-semibold tracking-tight text-neutral-100">
             DocBuddy
