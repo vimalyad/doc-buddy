@@ -14,12 +14,34 @@ type StoredChunk = {
   source: string;
 };
 
+type RetrievedChunk = {
+  id: string;
+  score: number;
+  pageContent: string;
+  chunkIndex: number | null;
+  source: string;
+  metadata: unknown;
+};
+
 const buildPayload = (chunk: Document, chunkIndex: number) => ({
   pageContent: chunk.pageContent,
   chunkIndex,
   source: String(chunk.metadata.source ?? "unknown"),
   metadata: chunk.metadata,
 });
+
+const validateVectorSize = (vector: number[]): void => {
+  if (vector.length !== QDRANT_VECTOR_SIZE) {
+    throw new Error(
+      `Expected embedding size ${QDRANT_VECTOR_SIZE}, received ${vector.length}.`,
+    );
+  }
+};
+
+const getPayloadField = (
+  payload: Record<string, unknown> | null | undefined,
+  key: string,
+): unknown => payload?.[key];
 
 export const upsertDocumentChunks = async (
   chunks: Document[],
@@ -36,12 +58,7 @@ export const upsertDocumentChunks = async (
 
   const points = chunks.map((chunk, index) => {
     const vector = embeddings[index];
-
-    if (vector.length !== QDRANT_VECTOR_SIZE) {
-      throw new Error(
-        `Expected embedding size ${QDRANT_VECTOR_SIZE}, received ${vector.length}.`,
-      );
-    }
+    validateVectorSize(vector);
 
     return {
       id: randomUUID(),
@@ -60,4 +77,35 @@ export const upsertDocumentChunks = async (
     chunkIndex: Number(point.payload.chunkIndex),
     source: String(point.payload.source),
   }));
+};
+
+export const searchSimilarChunks = async (
+  query: string,
+  limit = 5,
+): Promise<RetrievedChunk[]> => {
+  await ensureQdrantCollection();
+
+  const queryEmbedding = await getEmbeddings().embedQuery(query);
+  validateVectorSize(queryEmbedding);
+
+  const results = await getQdrantClient().search(QDRANT_COLLECTION_NAME, {
+    vector: queryEmbedding,
+    limit,
+    with_payload: true,
+    with_vector: false,
+  });
+
+  return results.map((result) => {
+    const payload = result.payload ?? {};
+    const chunkIndex = getPayloadField(payload, "chunkIndex");
+
+    return {
+      id: String(result.id),
+      score: result.score,
+      pageContent: String(getPayloadField(payload, "pageContent") ?? ""),
+      chunkIndex: typeof chunkIndex === "number" ? chunkIndex : null,
+      source: String(getPayloadField(payload, "source") ?? "unknown"),
+      metadata: getPayloadField(payload, "metadata") ?? null,
+    };
+  });
 };
