@@ -1,37 +1,48 @@
-import sqlite3 from "sqlite3";
-import { open, Database } from "sqlite";
+import fs from "fs";
 import path from "path";
 
-let dbInstance: Database<sqlite3.Database, sqlite3.Statement> | null = null;
+const DB_PATH = path.resolve(process.cwd(), "files.json");
 
-export const initDb = async () => {
-  if (dbInstance) return dbInstance;
+export interface FileRecord {
+  name: string;
+  size: number;
+  created_at: string;
+}
 
-  dbInstance = await open({
-    filename: path.resolve(process.cwd(), "database.sqlite"),
-    driver: sqlite3.Database,
-  });
-
-  await dbInstance.exec(`
-    CREATE TABLE IF NOT EXISTS files (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT UNIQUE NOT NULL,
-      size INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  return dbInstance;
-};
-
-export const getDb = async () => {
-  if (!dbInstance) {
-    return await initDb();
+const readDb = (): FileRecord[] => {
+  try {
+    if (!fs.existsSync(DB_PATH)) return [];
+    return JSON.parse(fs.readFileSync(DB_PATH, "utf-8")) as FileRecord[];
+  } catch {
+    return [];
   }
-  return dbInstance;
 };
 
-export const resetDb = async () => {
-  const db = await getDb();
-  await db.exec("DELETE FROM files");
+const writeDb = (files: FileRecord[]): void => {
+  fs.writeFileSync(DB_PATH, JSON.stringify(files, null, 2), "utf-8");
+};
+
+export const initDb = async (): Promise<void> => {
+  if (!fs.existsSync(DB_PATH)) {
+    writeDb([]);
+  }
+};
+
+export const resetDb = async (): Promise<void> => {
+  writeDb([]);
+};
+
+export const getAllFiles = (): FileRecord[] => {
+  return readDb();
+};
+
+export const upsertFile = (name: string, size: number): void => {
+  const files = readDb().filter((f) => f.name !== name);
+  files.unshift({ name, size, created_at: new Date().toISOString() });
+  writeDb(files);
+};
+
+export const deleteFile = (name: string): void => {
+  const files = readDb().filter((f) => f.name !== name);
+  writeDb(files);
 };
