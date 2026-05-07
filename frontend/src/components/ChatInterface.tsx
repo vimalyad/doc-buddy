@@ -220,20 +220,35 @@ function renderMessageContent(
   let blockCount = 0;
   let match: RegExpExecArray | null;
 
+  const renderTextSegment = (text: string, segmentIndex: number) => {
+    // Split text into paragraphs based on double newlines or more
+    const paragraphs = text.split(/\n\s*\n/);
+    return paragraphs.map((para, pIdx) => {
+      if (!para.trim()) return null;
+      return (
+        <p key={`seg-${segmentIndex}-p-${pIdx}`} className="mb-4 last:mb-0">
+          {renderInline(para, matches, `seg-${segmentIndex}-p-${pIdx}`, containerRef)}
+        </p>
+      );
+    });
+  };
+
   while ((match = fencedRegex.exec(content)) !== null) {
     // Text before the code block
     const before = content.slice(lastIndex, match.index);
     if (before) {
       segments.push(
-        <span key={`text-${blockCount}`} className="whitespace-pre-wrap">
-          {renderInline(before, matches, `pre-${blockCount}`, containerRef)}
-        </span>,
+        <div key={`text-${blockCount}`}>
+          {renderTextSegment(before, blockCount)}
+        </div>,
       );
     }
 
     const lang = match[1].trim();
     const code = match[2];
-    segments.push(<CodeBlock key={`code-${blockCount}`} code={code} lang={lang} />);
+    segments.push(
+      <CodeBlock key={`code-${blockCount}`} code={code} lang={lang} />,
+    );
 
     lastIndex = match.index + match[0].length;
     blockCount++;
@@ -243,9 +258,9 @@ function renderMessageContent(
   const remaining = content.slice(lastIndex);
   if (remaining) {
     segments.push(
-      <span key={`text-${blockCount}`} className="whitespace-pre-wrap">
-        {renderInline(remaining, matches, `post-${blockCount}`, containerRef)}
-      </span>,
+      <div key={`text-${blockCount}`}>
+        {renderTextSegment(remaining, blockCount)}
+      </div>,
     );
   }
 
