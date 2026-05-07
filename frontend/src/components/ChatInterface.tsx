@@ -170,40 +170,52 @@ function renderInline(
   keyPrefix: string,
   containerRef: React.RefObject<HTMLDivElement | null>,
 ): React.ReactNode[] {
-  // Split on inline code: `...`
-  const inlineParts = text.split(/(`[^`]+`)/g);
-  return inlineParts.flatMap((part, i) => {
-    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
-      const code = part.slice(1, -1);
+  // 1. Handle Bold: **text**
+  const boldParts = text.split(/(\*\*[^*]+\*\*)/g);
+  return boldParts.flatMap((bPart, bIdx) => {
+    if (bPart.startsWith("**") && bPart.endsWith("**")) {
       return (
-        <code
-          key={`${keyPrefix}-ic-${i}`}
-          className="px-1.5 py-0.5 rounded bg-neutral-800 text-emerald-300 font-mono text-[13px]"
-        >
-          {code}
-        </code>
+        <strong key={`${keyPrefix}-bold-${bIdx}`} className="font-bold text-neutral-100">
+          {renderInline(bPart.slice(2, -2), matches, `${keyPrefix}-bold-${bIdx}`, containerRef)}
+        </strong>
       );
     }
 
-    // Split on citations [n]
-    const citParts = part.split(/(\[\d+\])/g);
-    return citParts.map((cit, j) => {
-      const citMatch = cit.match(/^\[(\d+)\]$/);
-      if (citMatch) {
-        const sourceIndex = parseInt(citMatch[1]) - 1;
-        const sourceMatch = matches[sourceIndex];
-        if (sourceMatch) {
-          return (
-            <SourceTooltip
-              key={`${keyPrefix}-ic-${i}-cit-${j}`}
-              match={sourceMatch}
-              index={sourceIndex + 1}
-              containerRef={containerRef}
-            />
-          );
-        }
+    // 2. Handle Inline code: `code`
+    const inlineParts = bPart.split(/(`[^`]+`)/g);
+    return inlineParts.flatMap((part, i) => {
+      if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+        const code = part.slice(1, -1);
+        return (
+          <code
+            key={`${keyPrefix}-ic-${i}`}
+            className="px-1.5 py-0.5 rounded bg-neutral-800 text-emerald-300 font-mono text-[12px] border border-neutral-700/50"
+          >
+            {code}
+          </code>
+        );
       }
-      return <span key={`${keyPrefix}-ic-${i}-txt-${j}`}>{cit}</span>;
+
+      // 3. Handle Citations: [n]
+      const citParts = part.split(/(\[\d+\])/g);
+      return citParts.map((cit, j) => {
+        const citMatch = cit.match(/^\[(\d+)\]$/);
+        if (citMatch) {
+          const sourceIndex = parseInt(citMatch[1]) - 1;
+          const sourceMatch = matches[sourceIndex];
+          if (sourceMatch) {
+            return (
+              <SourceTooltip
+                key={`${keyPrefix}-ic-${i}-cit-${j}`}
+                match={sourceMatch}
+                index={sourceIndex + 1}
+                containerRef={containerRef}
+              />
+            );
+          }
+        }
+        return <span key={`${keyPrefix}-ic-${i}-txt-${j}`}>{cit}</span>;
+      });
     });
   });
 }
@@ -221,13 +233,31 @@ function renderMessageContent(
   let match: RegExpExecArray | null;
 
   const renderTextSegment = (text: string, segmentIndex: number) => {
-    // Split text into paragraphs based on double newlines or more
+    // Split text into paragraphs
     const paragraphs = text.split(/\n\s*\n/);
     return paragraphs.map((para, pIdx) => {
-      if (!para.trim()) return null;
+      const trimmedPara = para.trim();
+      if (!trimmedPara) return null;
+
+      // Detect if this is a list item (e.g., "1. " or "* ")
+      const listMatch = trimmedPara.match(/^(\d+\.|[*•-])\s+(.*)/s);
+      
+      if (listMatch) {
+        const marker = listMatch[1];
+        const content = listMatch[2];
+        return (
+          <div key={`seg-${segmentIndex}-l-${pIdx}`} className="flex gap-3 mb-3 pl-2 last:mb-0">
+            <span className="text-neutral-500 font-mono text-sm shrink-0 mt-0.5">{marker}</span>
+            <div className="flex-1">
+              {renderInline(content, matches, `seg-${segmentIndex}-l-${pIdx}`, containerRef)}
+            </div>
+          </div>
+        );
+      }
+
       return (
-        <p key={`seg-${segmentIndex}-p-${pIdx}`} className="mb-4 last:mb-0">
-          {renderInline(para, matches, `seg-${segmentIndex}-p-${pIdx}`, containerRef)}
+        <p key={`seg-${segmentIndex}-p-${pIdx}`} className="mb-4 last:mb-0 leading-relaxed tracking-wide">
+          {renderInline(trimmedPara, matches, `seg-${segmentIndex}-p-${pIdx}`, containerRef)}
         </p>
       );
     });
@@ -299,9 +329,13 @@ function loadMessages(): Message[] {
 // ---------------------------------------------------------------------------
 interface ChatInterfaceProps {
   hasDocuments: boolean;
+  isInitialLoading: boolean;
 }
 
-export function ChatInterface({ hasDocuments }: ChatInterfaceProps) {
+export function ChatInterface({
+  hasDocuments,
+  isInitialLoading,
+}: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>(loadMessages);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -411,18 +445,12 @@ export function ChatInterface({ hasDocuments }: ChatInterfaceProps) {
         </button>
       </div>
 
-      {/* Empty state — shown when no documents are uploaded */}
-      {!hasDocuments && (
-        <div className="absolute inset-0 top-[60px] flex flex-col items-center justify-center gap-5 pointer-events-none z-10">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-neutral-900 border border-neutral-800 shadow-lg">
-            <FileUp className="h-7 w-7 text-neutral-500" />
-          </div>
-          <div className="text-center">
-            <p className="text-[15px] font-medium text-neutral-300">No documents yet</p>
-            <p className="mt-1.5 text-[13px] text-neutral-500 max-w-[220px] leading-relaxed">
-              Upload a PDF, TXT, or CSV from the sidebar to start chatting
-            </p>
-          </div>
+
+      {/* Loading state — shown during initial document sync */}
+      {isInitialLoading && (
+        <div className="absolute inset-0 top-[60px] flex flex-col items-center justify-center gap-3 pointer-events-none z-10">
+          <Loader2 className="h-6 w-6 text-neutral-700 animate-spin" />
+          <p className="text-[13px] text-neutral-600">Syncing knowledge base...</p>
         </div>
       )}
 
