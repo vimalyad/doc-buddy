@@ -1,6 +1,16 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import axios from "axios";
-import { Send, User, Bot, Loader2, Trash2, Copy, Check, FileUp } from "lucide-react";
+import {
+  Send,
+  User,
+  Bot,
+  Loader2,
+  Trash2,
+  Copy,
+  Check,
+  FileUp,
+} from "lucide-react";
 
 interface RetrievedChunk {
   id: string;
@@ -20,19 +30,21 @@ interface Message {
 }
 
 // ---------------------------------------------------------------------------
-// Source tooltip — viewport-aware positioning
+// Source tooltip — Portal-based with viewport clamping
 // ---------------------------------------------------------------------------
-const TOOLTIP_WIDTH = 288; // matches w-72 (18rem = 288px at 16px base)
+const TOOLTIP_WIDTH = 288; // w-72
 
 function SourceTooltip({
   match,
   index,
+  containerRef,
 }: {
   match: RetrievedChunk;
   index: number;
+  containerRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const [show, setShow] = useState(false);
-  const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const metadata = match.metadata as { loc?: { pageNumber?: number } } | null;
@@ -40,32 +52,28 @@ function SourceTooltip({
   const badgeText = pageNumber ? `p. ${pageNumber}` : index;
 
   const handleMouseEnter = () => {
-    if (buttonRef.current) {
+    if (buttonRef.current && containerRef.current) {
       const btnRect = buttonRef.current.getBoundingClientRect();
-      const spanRect = buttonRef.current.parentElement!.getBoundingClientRect();
+      const contRect = containerRef.current.getBoundingClientRect();
 
-      // Use the chat <section> container as the clamping boundary so the
-      // tooltip can never slide behind the sidebar on the left.
-      const chatSection = buttonRef.current.closest("section");
-      const sectionRect = chatSection?.getBoundingClientRect();
-      const leftBound  = (sectionRect?.left  ?? 0) + 16;
-      const rightBound = (sectionRect?.right ?? window.innerWidth) - 16;
+      // Horizontal positioning: try to center on button, but clamp to container
+      let left = btnRect.left + btnRect.width / 2 - TOOLTIP_WIDTH / 2;
 
-      // Ideal: centre the tooltip on the badge (viewport coords)
-      const idealLeft = btnRect.left + btnRect.width / 2 - TOOLTIP_WIDTH / 2;
+      // Ensure at least 16px padding from container edges
+      const minLeft = contRect.left + 16;
+      const maxLeft = contRect.right - TOOLTIP_WIDTH - 16;
+      left = Math.max(minLeft, Math.min(left, maxLeft));
 
-      // Clamp so the tooltip stays within the chat section
-      const clamped = Math.max(leftBound, Math.min(idealLeft, rightBound - TOOLTIP_WIDTH));
+      // Vertical positioning: always above the button
+      const top = btnRect.top - 8; // 8px gap
 
-      // Convert from viewport coords to span-relative coords
-      const relativeLeft = clamped - spanRect.left;
-      setTooltipStyle({ left: `${relativeLeft}px`, transform: "none" });
+      setCoords({ top, left });
+      setShow(true);
     }
-    setShow(true);
   };
 
   return (
-    <span className="relative inline-block mx-0.5 group">
+    <span className="inline-block mx-0.5">
       <button
         ref={buttonRef}
         onMouseEnter={handleMouseEnter}
@@ -74,26 +82,33 @@ function SourceTooltip({
       >
         {badgeText}
       </button>
-      {show && (
-        <div
-          className="absolute bottom-full mb-2 w-72 p-3 bg-neutral-900 border border-neutral-800 rounded-lg shadow-xl z-50 animate-in fade-in slide-in-from-bottom-1"
-          style={tooltipStyle}
-        >
-          <div className="text-[11px] font-medium text-neutral-300 mb-2 pb-2 border-b border-neutral-800 flex items-center justify-between">
-            <span className="truncate pr-2">{match.source}</span>
-            <span className="text-neutral-500 whitespace-nowrap">
-              {pageNumber ? `Page ${pageNumber}` : `Chunk #${match.chunkIndex}`}
-            </span>
-          </div>
-          <div className="text-[12px] leading-relaxed text-neutral-400">
-            "
-            {match.pageContent.length > 200
-              ? match.pageContent.substring(0, 200) + "..."
-              : match.pageContent}
-            "
-          </div>
-        </div>
-      )}
+
+      {show &&
+        createPortal(
+          <div
+            className="fixed z-[100] w-72 p-3 bg-neutral-900 border border-neutral-800 rounded-lg shadow-2xl pointer-events-none animate-in fade-in slide-in-from-bottom-1"
+            style={{
+              top: `${coords.top}px`,
+              left: `${coords.left}px`,
+              transform: "translateY(-100%)",
+            }}
+          >
+            <div className="text-[11px] font-medium text-neutral-300 mb-2 pb-2 border-b border-neutral-800 flex items-center justify-between">
+              <span className="truncate pr-2">{match.source}</span>
+              <span className="text-neutral-500 whitespace-nowrap">
+                {pageNumber ? `Page ${pageNumber}` : `Chunk #${match.chunkIndex}`}
+              </span>
+            </div>
+            <div className="text-[12px] leading-relaxed text-neutral-400">
+              "
+              {match.pageContent.length > 200
+                ? match.pageContent.substring(0, 200) + "..."
+                : match.pageContent}
+              "
+            </div>
+          </div>,
+          document.body,
+        )}
     </span>
   );
 }
@@ -153,6 +168,7 @@ function renderInline(
   text: string,
   matches: RetrievedChunk[],
   keyPrefix: string,
+  containerRef: React.RefObject<HTMLDivElement | null>,
 ): React.ReactNode[] {
   // Split on inline code: `...`
   const inlineParts = text.split(/(`[^`]+`)/g);
@@ -182,6 +198,7 @@ function renderInline(
               key={`${keyPrefix}-ic-${i}-cit-${j}`}
               match={sourceMatch}
               index={sourceIndex + 1}
+              containerRef={containerRef}
             />
           );
         }
@@ -194,6 +211,7 @@ function renderInline(
 function renderMessageContent(
   content: string,
   matches: RetrievedChunk[] = [],
+  containerRef: React.RefObject<HTMLDivElement | null>,
 ): React.ReactNode {
   // Split on fenced code blocks: ```lang\n...\n```
   const fencedRegex = /```([^\n]*)\n([\s\S]*?)```/g;
@@ -208,7 +226,7 @@ function renderMessageContent(
     if (before) {
       segments.push(
         <span key={`text-${blockCount}`} className="whitespace-pre-wrap">
-          {renderInline(before, matches, `pre-${blockCount}`)}
+          {renderInline(before, matches, `pre-${blockCount}`, containerRef)}
         </span>,
       );
     }
@@ -226,7 +244,7 @@ function renderMessageContent(
   if (remaining) {
     segments.push(
       <span key={`text-${blockCount}`} className="whitespace-pre-wrap">
-        {renderInline(remaining, matches, `post-${blockCount}`)}
+        {renderInline(remaining, matches, `post-${blockCount}`, containerRef)}
       </span>,
     );
   }
@@ -274,6 +292,7 @@ export function ChatInterface({ hasDocuments }: ChatInterfaceProps) {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   // Persist messages to localStorage whenever they change
   useEffect(() => {
@@ -360,7 +379,10 @@ export function ChatInterface({ hasDocuments }: ChatInterfaceProps) {
   };
 
   return (
-    <div className="relative flex flex-col h-full w-full bg-[#0a0a0a] overflow-hidden text-neutral-200">
+    <div
+      ref={chatContainerRef}
+      className="relative flex flex-col h-full w-full bg-[#0a0a0a] overflow-hidden text-neutral-200"
+    >
       {/* Header */}
       <div className="px-8 py-5 border-b border-neutral-900 bg-[#0a0a0a] flex items-center justify-between">
         <h2 className="text-[15px] font-medium text-neutral-400">Chat</h2>
@@ -409,7 +431,11 @@ export function ChatInterface({ hasDocuments }: ChatInterfaceProps) {
                 {message.role === "user" ? "You" : "DocBuddy"}
               </div>
               <div className="text-[15px] leading-relaxed text-neutral-300">
-                {renderMessageContent(message.content, message.matches)}
+                {renderMessageContent(
+                  message.content,
+                  message.matches,
+                  chatContainerRef,
+                )}
               </div>
             </div>
           </div>
