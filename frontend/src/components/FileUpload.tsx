@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useCallback } from "react";
 import type { ChangeEvent, DragEvent } from "react";
 import axios from "axios";
 import { CheckCircle2, FileText, Loader2, Upload, XCircle, AlertTriangle } from "lucide-react";
@@ -19,7 +19,7 @@ const isAcceptedFile = (file: File): boolean => {
   return ACCEPTED_TYPES.includes(file.type) || ACCEPTED_EXTENSIONS.includes(extension);
 };
 
-interface PersistedFile {
+export interface PersistedFile {
   name: string;
   size: number;
 }
@@ -64,11 +64,18 @@ function ToastStack({
   );
 }
 
-export function FileUpload() {
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
+interface FileUploadProps {
+  uploadedFiles: PersistedFile[];
+  onRefresh: () => Promise<void>;
+}
+
+export function FileUpload({ uploadedFiles, onRefresh }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<PersistedFile[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   // -------------------------------------------------------------------------
@@ -87,22 +94,6 @@ export function FileUpload() {
   }, []);
 
   // -------------------------------------------------------------------------
-  // Data fetching
-  // -------------------------------------------------------------------------
-  const fetchFiles = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/api/files`);
-      setUploadedFiles(res.data);
-    } catch (err) {
-      console.error("Failed to fetch files from backend:", err);
-    }
-  };
-
-  useEffect(() => {
-    fetchFiles();
-  }, []);
-
-  // -------------------------------------------------------------------------
   // Upload
   // -------------------------------------------------------------------------
   const selectFile = async (nextFile: File) => {
@@ -112,9 +103,7 @@ export function FileUpload() {
     }
 
     // Duplicate detection — checked client-side before hitting the network
-    const isDuplicate = uploadedFiles.some(
-      (f) => f.name === nextFile.name,
-    );
+    const isDuplicate = uploadedFiles.some((f) => f.name === nextFile.name);
     if (isDuplicate) {
       pushToast(
         `"${nextFile.name}" is already in your knowledge base. Remove it first if you want to replace it.`,
@@ -130,7 +119,7 @@ export function FileUpload() {
       const formData = new FormData();
       formData.append("file", nextFile);
       await axios.post(`${API_URL}/api/upload`, formData);
-      await fetchFiles();
+      await onRefresh();
     } catch (err) {
       let errorMessage = "An unexpected error occurred during upload.";
       if (axios.isAxiosError(err)) {
@@ -160,7 +149,7 @@ export function FileUpload() {
   const clearFile = async (nameToDelete: string) => {
     try {
       await axios.post(`${API_URL}/api/delete`, { source: nameToDelete });
-      await fetchFiles();
+      await onRefresh();
     } catch (err) {
       console.error("Failed to sync deletion with vector store:", err);
     }
