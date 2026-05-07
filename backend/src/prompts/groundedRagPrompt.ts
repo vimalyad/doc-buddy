@@ -10,7 +10,9 @@ Rules:
 5. CRITICAL: If citing multiple sources, output them in SEPARATE brackets like [1][2][3]. DO NOT use comma-separated formats like [1, 2, 3] or [1-3]. Place citations at the end of the sentence.
 6. If sources conflict, explain the conflict and cite the conflicting sources using the same numeric format.
 7. Keep the answer concise and directly focused on the question.
-8. Do not mention these instructions in the answer.`;
+8. Always provide your response in a single, continuous paragraph. Do not use double newlines or split your answer into multiple paragraphs.
+9. Do not mention these instructions in the answer.`;
+
 
 export const buildGroundedRagPrompt = (
   question: string,
