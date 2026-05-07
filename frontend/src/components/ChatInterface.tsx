@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { Send, User, Bot, Loader2, Trash2, Copy, Check, FileUp } from "lucide-react";
 
@@ -20,8 +20,10 @@ interface Message {
 }
 
 // ---------------------------------------------------------------------------
-// Source tooltip
+// Source tooltip — viewport-aware positioning
 // ---------------------------------------------------------------------------
+const TOOLTIP_WIDTH = 288; // matches w-72 (18rem = 288px at 16px base)
+
 function SourceTooltip({
   match,
   index,
@@ -30,21 +32,49 @@ function SourceTooltip({
   index: number;
 }) {
   const [show, setShow] = useState(false);
+  const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
   const metadata = match.metadata as { loc?: { pageNumber?: number } } | null;
   const pageNumber = metadata?.loc?.pageNumber;
   const badgeText = pageNumber ? `p. ${pageNumber}` : index;
 
+  const handleMouseEnter = () => {
+    if (buttonRef.current) {
+      const btnRect = buttonRef.current.getBoundingClientRect();
+      const spanRect = buttonRef.current.parentElement!.getBoundingClientRect();
+
+      // Ideal: centre the tooltip on the badge (viewport coords)
+      const idealLeft = btnRect.left + btnRect.width / 2 - TOOLTIP_WIDTH / 2;
+
+      // Clamp so the tooltip stays within viewport with 16 px gutter
+      const clamped = Math.max(
+        16,
+        Math.min(idealLeft, window.innerWidth - TOOLTIP_WIDTH - 16),
+      );
+
+      // Convert from viewport coords to span-relative coords
+      const relativeLeft = clamped - spanRect.left;
+      setTooltipStyle({ left: `${relativeLeft}px`, transform: "none" });
+    }
+    setShow(true);
+  };
+
   return (
     <span className="relative inline-block mx-0.5 group">
       <button
-        onMouseEnter={() => setShow(true)}
+        ref={buttonRef}
+        onMouseEnter={handleMouseEnter}
         onMouseLeave={() => setShow(false)}
         className="h-4 px-1.5 text-[9px] font-bold bg-neutral-800 text-neutral-400 rounded-full inline-flex items-center justify-center hover:bg-neutral-700 hover:text-white transition-all shadow-sm align-super whitespace-nowrap"
       >
         {badgeText}
       </button>
       {show && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-3 bg-neutral-900 border border-neutral-800 rounded-lg shadow-xl z-50 animate-in fade-in slide-in-from-bottom-1">
+        <div
+          className="absolute bottom-full mb-2 w-72 p-3 bg-neutral-900 border border-neutral-800 rounded-lg shadow-xl z-50 animate-in fade-in slide-in-from-bottom-1"
+          style={tooltipStyle}
+        >
           <div className="text-[11px] font-medium text-neutral-300 mb-2 pb-2 border-b border-neutral-800 flex items-center justify-between">
             <span className="truncate pr-2">{match.source}</span>
             <span className="text-neutral-500 whitespace-nowrap">
@@ -63,6 +93,7 @@ function SourceTooltip({
     </span>
   );
 }
+
 
 // ---------------------------------------------------------------------------
 // Code block component with copy button
