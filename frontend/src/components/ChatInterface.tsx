@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { Send, User, Bot, Loader2, Trash2 } from "lucide-react";
+import { Send, User, Bot, Loader2, Trash2, Copy, Check } from "lucide-react";
 
 interface RetrievedChunk {
   id: string;
@@ -19,6 +19,9 @@ interface Message {
   matches?: RetrievedChunk[];
 }
 
+// ---------------------------------------------------------------------------
+// Source tooltip
+// ---------------------------------------------------------------------------
 function SourceTooltip({
   match,
   index,
@@ -27,8 +30,6 @@ function SourceTooltip({
   index: number;
 }) {
   const [show, setShow] = useState(false);
-
-  // Extract page number from metadata if available
   const metadata = match.metadata as { loc?: { pageNumber?: number } } | null;
   const pageNumber = metadata?.loc?.pageNumber;
   const badgeText = pageNumber ? `p. ${pageNumber}` : index;
@@ -63,6 +64,144 @@ function SourceTooltip({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Code block component with copy button
+// ---------------------------------------------------------------------------
+function CodeBlock({ code, lang }: { code: string; lang: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div className="my-3 rounded-xl overflow-hidden border border-neutral-800 bg-[#111111]">
+      {/* Header bar */}
+      <div className="flex items-center justify-between px-4 py-2 bg-neutral-900 border-b border-neutral-800">
+        <span className="text-[11px] font-mono text-neutral-500 uppercase tracking-wider">
+          {lang || "code"}
+        </span>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1.5 text-[11px] text-neutral-500 hover:text-neutral-200 transition-colors"
+          aria-label="Copy code"
+        >
+          {copied ? (
+            <>
+              <Check className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-emerald-400">Copied!</span>
+            </>
+          ) : (
+            <>
+              <Copy className="w-3.5 h-3.5" />
+              <span>Copy</span>
+            </>
+          )}
+        </button>
+      </div>
+      {/* Code body */}
+      <pre className="overflow-x-auto p-4 text-[13px] leading-relaxed text-neutral-300 font-mono whitespace-pre">
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Inline markdown renderer
+// Handles: fenced code blocks (```lang ... ```), inline `code`, [n] citations
+// ---------------------------------------------------------------------------
+function renderInline(
+  text: string,
+  matches: RetrievedChunk[],
+  keyPrefix: string,
+): React.ReactNode[] {
+  // Split on inline code: `...`
+  const inlineParts = text.split(/(`[^`]+`)/g);
+  return inlineParts.flatMap((part, i) => {
+    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+      const code = part.slice(1, -1);
+      return (
+        <code
+          key={`${keyPrefix}-ic-${i}`}
+          className="px-1.5 py-0.5 rounded bg-neutral-800 text-emerald-300 font-mono text-[13px]"
+        >
+          {code}
+        </code>
+      );
+    }
+
+    // Split on citations [n]
+    const citParts = part.split(/(\[\d+\])/g);
+    return citParts.map((cit, j) => {
+      const citMatch = cit.match(/^\[(\d+)\]$/);
+      if (citMatch) {
+        const sourceIndex = parseInt(citMatch[1]) - 1;
+        const sourceMatch = matches[sourceIndex];
+        if (sourceMatch) {
+          return (
+            <SourceTooltip
+              key={`${keyPrefix}-ic-${i}-cit-${j}`}
+              match={sourceMatch}
+              index={sourceIndex + 1}
+            />
+          );
+        }
+      }
+      return <span key={`${keyPrefix}-ic-${i}-txt-${j}`}>{cit}</span>;
+    });
+  });
+}
+
+function renderMessageContent(
+  content: string,
+  matches: RetrievedChunk[] = [],
+): React.ReactNode {
+  // Split on fenced code blocks: ```lang\n...\n```
+  const fencedRegex = /```([^\n]*)\n([\s\S]*?)```/g;
+  const segments: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let blockCount = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = fencedRegex.exec(content)) !== null) {
+    // Text before the code block
+    const before = content.slice(lastIndex, match.index);
+    if (before) {
+      segments.push(
+        <span key={`text-${blockCount}`} className="whitespace-pre-wrap">
+          {renderInline(before, matches, `pre-${blockCount}`)}
+        </span>,
+      );
+    }
+
+    const lang = match[1].trim();
+    const code = match[2];
+    segments.push(<CodeBlock key={`code-${blockCount}`} code={code} lang={lang} />);
+
+    lastIndex = match.index + match[0].length;
+    blockCount++;
+  }
+
+  // Remaining text after last code block
+  const remaining = content.slice(lastIndex);
+  if (remaining) {
+    segments.push(
+      <span key={`text-${blockCount}`} className="whitespace-pre-wrap">
+        {renderInline(remaining, matches, `post-${blockCount}`)}
+      </span>,
+    );
+  }
+
+  return <>{segments}</>;
+}
+
+// ---------------------------------------------------------------------------
+// Constants & helpers
+// ---------------------------------------------------------------------------
 const STORAGE_KEY = "docbuddy_chat";
 const API_URL = import.meta.env.VITE_API_URL || "";
 
@@ -87,6 +226,9 @@ function loadMessages(): Message[] {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>(loadMessages);
   const [input, setInput] = useState("");
@@ -107,14 +249,14 @@ export function ChatInterface() {
   // Auto-focus input on any printable keypress
   useEffect(() => {
     const handleGlobalKey = (e: KeyboardEvent) => {
-      // Ignore modifier-only, navigation, and control keys
       if (
         e.key.length !== 1 ||
         e.ctrlKey ||
         e.metaKey ||
         e.altKey ||
         document.activeElement === inputRef.current
-      ) return;
+      )
+        return;
       inputRef.current?.focus();
     };
     window.addEventListener("keydown", handleGlobalKey);
@@ -143,7 +285,9 @@ export function ChatInterface() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(`${API_URL}/api/ask`, { question: input });
+      const response = await axios.post(`${API_URL}/api/ask`, {
+        question: input,
+      });
       const data = response.data;
 
       const assistantMessage: Message = {
@@ -176,30 +320,6 @@ export function ChatInterface() {
     }
   };
 
-  const renderMessageContent = (
-    content: string,
-    matches: RetrievedChunk[] = [],
-  ) => {
-    const parts = content.split(/(\[\d+\])/g);
-    return parts.map((part, index) => {
-      const citationMatch = part.match(/\[(\d+)\]/);
-      if (citationMatch) {
-        const sourceIndex = parseInt(citationMatch[1]) - 1;
-        const sourceMatch = matches[sourceIndex];
-        if (sourceMatch) {
-          return (
-            <SourceTooltip
-              key={index}
-              match={sourceMatch}
-              index={sourceIndex + 1}
-            />
-          );
-        }
-      }
-      return part;
-    });
-  };
-
   return (
     <div className="flex flex-col h-full w-full bg-[#0a0a0a] overflow-hidden text-neutral-200">
       {/* Header */}
@@ -208,7 +328,7 @@ export function ChatInterface() {
         <button
           onClick={clearChat}
           title="Clear chat history"
-          className="text-xs text-neutral-600 hover:text-neutral-300 transition-colors flex items-center gap-2"
+          className="text-xs text-red-700 hover:text-red-400 transition-colors flex items-center gap-2"
         >
           <Trash2 className="w-4 h-4" />
           Clear Chat
@@ -230,7 +350,7 @@ export function ChatInterface() {
                 </div>
               )}
             </div>
-            <div className="flex-1 space-y-1.5">
+            <div className="flex-1 space-y-1.5 min-w-0">
               <div className="font-medium text-[14px] text-neutral-500">
                 {message.role === "user" ? "You" : "DocBuddy"}
               </div>
