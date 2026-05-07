@@ -2,10 +2,6 @@
 
 DocBuddy is a full-stack RAG (Retrieval-Augmented Generation) application designed to mirror the Google NotebookLM experience. It allows users to upload documents and have grounded, citation-rich conversations with their data.
 
-## 🚀 Live Demo
-- **Frontend:** [Your Vercel Link Here]
-- **Backend:** [Your Render Link Here]
-
 ## ✨ Key Features
 - **Intelligent RAG Pipeline**: End-to-end document processing from ingestion to grounded answer generation.
 - **Interactive Citations**: Hover over AI-generated citations (e.g., `[1]`, `p. 3`) to see the exact text snippet retrieved from your document.
@@ -61,4 +57,3 @@ DocBuddy uses a **Recursive Character Splitting** strategy:
 4. `npm run dev`
 
 ---
-*Assignment 03 — Google NotebookLM RAG*
