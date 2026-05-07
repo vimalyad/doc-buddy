@@ -44,14 +44,18 @@ function SourceTooltip({
       const btnRect = buttonRef.current.getBoundingClientRect();
       const spanRect = buttonRef.current.parentElement!.getBoundingClientRect();
 
+      // Use the chat <section> container as the clamping boundary so the
+      // tooltip can never slide behind the sidebar on the left.
+      const chatSection = buttonRef.current.closest("section");
+      const sectionRect = chatSection?.getBoundingClientRect();
+      const leftBound  = (sectionRect?.left  ?? 0) + 16;
+      const rightBound = (sectionRect?.right ?? window.innerWidth) - 16;
+
       // Ideal: centre the tooltip on the badge (viewport coords)
       const idealLeft = btnRect.left + btnRect.width / 2 - TOOLTIP_WIDTH / 2;
 
-      // Clamp so the tooltip stays within viewport with 16 px gutter
-      const clamped = Math.max(
-        16,
-        Math.min(idealLeft, window.innerWidth - TOOLTIP_WIDTH - 16),
-      );
+      // Clamp so the tooltip stays within the chat section
+      const clamped = Math.max(leftBound, Math.min(idealLeft, rightBound - TOOLTIP_WIDTH));
 
       // Convert from viewport coords to span-relative coords
       const relativeLeft = clamped - spanRect.left;
