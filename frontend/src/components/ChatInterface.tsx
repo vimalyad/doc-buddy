@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { Send, User, Bot, Loader2, Trash2, Copy, Check } from "lucide-react";
+import { Send, User, Bot, Loader2, Trash2, Copy, Check, FileUp } from "lucide-react";
 
 interface RetrievedChunk {
   id: string;
@@ -229,7 +229,11 @@ function loadMessages(): Message[] {
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
-export function ChatInterface() {
+interface ChatInterfaceProps {
+  hasDocuments: boolean;
+}
+
+export function ChatInterface({ hasDocuments }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>(loadMessages);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -321,7 +325,7 @@ export function ChatInterface() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#0a0a0a] overflow-hidden text-neutral-200">
+    <div className="relative flex flex-col h-full w-full bg-[#0a0a0a] overflow-hidden text-neutral-200">
       {/* Header */}
       <div className="px-8 py-5 border-b border-neutral-900 bg-[#0a0a0a] flex items-center justify-between">
         <h2 className="text-[15px] font-medium text-neutral-400">Chat</h2>
@@ -334,6 +338,21 @@ export function ChatInterface() {
           Clear Chat
         </button>
       </div>
+
+      {/* Empty state — shown when no documents are uploaded */}
+      {!hasDocuments && (
+        <div className="absolute inset-0 top-[60px] flex flex-col items-center justify-center gap-5 pointer-events-none z-10">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-neutral-900 border border-neutral-800 shadow-lg">
+            <FileUp className="h-7 w-7 text-neutral-500" />
+          </div>
+          <div className="text-center">
+            <p className="text-[15px] font-medium text-neutral-300">No documents yet</p>
+            <p className="mt-1.5 text-[13px] text-neutral-500 max-w-[220px] leading-relaxed">
+              Upload a PDF, TXT, or CSV from the sidebar to start chatting
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-[#0a0a0a]">
@@ -385,13 +404,17 @@ export function ChatInterface() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Ask a question..."
-            disabled={isLoading}
-            className="w-full pl-5 pr-14 py-4 bg-neutral-900 border border-neutral-800 rounded-xl text-base text-neutral-200 placeholder:text-neutral-500 focus:ring-1 focus:ring-neutral-700 focus:border-neutral-700 transition-all outline-none disabled:opacity-50"
+            placeholder={
+              hasDocuments
+                ? "Ask a question..."
+                : "Upload a document first to start asking questions"
+            }
+            disabled={isLoading || !hasDocuments}
+            className="w-full pl-5 pr-14 py-4 bg-neutral-900 border border-neutral-800 rounded-xl text-base text-neutral-200 placeholder:text-neutral-500 focus:ring-1 focus:ring-neutral-700 focus:border-neutral-700 transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <button
             onClick={handleSend}
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() || isLoading || !hasDocuments}
             className="absolute right-3 p-2 text-neutral-500 hover:text-neutral-200 disabled:text-neutral-700 disabled:cursor-not-allowed transition-colors"
             aria-label="Send message"
           >
