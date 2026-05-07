@@ -1,8 +1,8 @@
 import { Document } from "@langchain/core/documents";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 
-const CHUNK_SIZE = 1000;
-const CHUNK_OVERLAP = 200;
+const CHUNK_SIZE = 2000;
+const CHUNK_OVERLAP = 400;
 
 const textSplitter = new RecursiveCharacterTextSplitter({
   chunkSize: CHUNK_SIZE,

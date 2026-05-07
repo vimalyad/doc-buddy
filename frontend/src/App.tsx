@@ -12,6 +12,7 @@ interface PersistedFile {
 
 function App() {
   const [uploadedFiles, setUploadedFiles] = useState<PersistedFile[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   const fetchFiles = useCallback(async () => {
     try {
@@ -19,6 +20,8 @@ function App() {
       setUploadedFiles(res.data);
     } catch (err) {
       console.error("Failed to fetch files from backend:", err);
+    } finally {
+      setIsInitialLoading(false);
     }
   }, []);
 
@@ -56,7 +59,10 @@ function App() {
 
         {/* Right Content: Chat Interface */}
         <section className="flex-1 flex flex-col bg-[#0a0a0a] overflow-hidden">
-          <ChatInterface hasDocuments={uploadedFiles.length > 0} />
+          <ChatInterface 
+            hasDocuments={uploadedFiles.length > 0} 
+            isInitialLoading={isInitialLoading}
+          />
         </section>
       </div>
     </main>
