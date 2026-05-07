@@ -92,6 +92,7 @@ export function ChatInterface() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Persist messages to localStorage whenever they change
   useEffect(() => {
@@ -102,6 +103,23 @@ export function ChatInterface() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
+
+  // Auto-focus input on any printable keypress
+  useEffect(() => {
+    const handleGlobalKey = (e: KeyboardEvent) => {
+      // Ignore modifier-only, navigation, and control keys
+      if (
+        e.key.length !== 1 ||
+        e.ctrlKey ||
+        e.metaKey ||
+        e.altKey ||
+        document.activeElement === inputRef.current
+      ) return;
+      inputRef.current?.focus();
+    };
+    window.addEventListener("keydown", handleGlobalKey);
+    return () => window.removeEventListener("keydown", handleGlobalKey);
+  }, []);
 
   const clearChat = () => {
     const fresh = [
@@ -200,7 +218,7 @@ export function ChatInterface() {
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-[#0a0a0a]">
         {messages.map((message) => (
-          <div key={message.id} className="flex gap-6 max-w-3xl mx-auto w-full">
+          <div key={message.id} className="flex gap-6 w-full">
             <div className="flex-none w-7 h-7 flex items-center justify-center mt-0.5">
               {message.role === "user" ? (
                 <div className="w-full h-full rounded-sm bg-neutral-200 text-neutral-900 flex items-center justify-center">
@@ -224,7 +242,7 @@ export function ChatInterface() {
         ))}
         <div ref={messagesEndRef} />
         {isLoading && (
-          <div className="flex gap-6 max-w-3xl mx-auto w-full">
+          <div className="flex gap-6 w-full">
             <div className="flex-none w-7 h-7 flex items-center justify-center mt-0.5">
               <div className="w-full h-full rounded-sm bg-neutral-800 text-neutral-300 flex items-center justify-center border border-neutral-700">
                 <Bot className="w-4 h-4" />
@@ -240,8 +258,9 @@ export function ChatInterface() {
 
       {/* Input Area */}
       <div className="p-6 bg-[#0a0a0a]">
-        <div className="relative flex items-center max-w-3xl mx-auto w-full">
+        <div className="relative flex items-center w-full">
           <input
+            ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
