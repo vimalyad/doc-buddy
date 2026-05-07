@@ -104,11 +104,16 @@ export function FileUpload() {
 
       <div
         className={[
-          "flex min-h-40 flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center transition-colors",
+          "flex min-h-40 flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center transition-colors cursor-pointer",
           isDragging
             ? "border-neutral-500 bg-neutral-800/50"
             : "border-neutral-800 bg-neutral-900/30 hover:border-neutral-700 hover:bg-neutral-900/50",
         ].join(" ")}
+        onClick={(event) => {
+          // Avoid double-triggering when the "Select file" button itself is clicked
+          if ((event.target as HTMLElement).closest("button")) return;
+          if (!isLoading) inputRef.current?.click();
+        }}
         onDragEnter={(event) => {
           event.preventDefault();
           setIsDragging(true);
