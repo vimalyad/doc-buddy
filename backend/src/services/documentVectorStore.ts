@@ -7,6 +7,8 @@ import {
   QDRANT_COLLECTION_NAME,
   QDRANT_VECTOR_SIZE,
 } from "../config/vectorStore";
+import { chunkArray, runWithConcurrency } from "../utils/concurrency";
+import { EMBED_BATCH_SIZE, CONCURRENCY_LIMIT } from "../config/ingestion";
 
 type StoredChunk = {
   id: string;
@@ -52,31 +54,49 @@ export const upsertDocumentChunks = async (
 
   await ensureQdrantCollection();
 
-  const embeddings = await getEmbeddings().embedDocuments(
-    chunks.map((chunk) => chunk.pageContent),
+  const batches = chunkArray(chunks, EMBED_BATCH_SIZE);
+
+  console.log(
+    `[upsertDocumentChunks] ${chunks.length} chunks → ${batches.length} batch(es), concurrency=${CONCURRENCY_LIMIT}`,
   );
 
-  const points = chunks.map((chunk, index) => {
-    const vector = embeddings[index];
-    validateVectorSize(vector);
+  const tasks = batches.map(
+    (batch, batchIndex) =>
+      async (): Promise<StoredChunk[]> => {
+        // ── Step 1: embed this batch via HuggingFace ──────────────────────
+        const batchEmbeddings = await getEmbeddings().embedDocuments(
+          batch.map((chunk) => chunk.pageContent),
+        );
 
-    return {
-      id: randomUUID(),
-      vector,
-      payload: buildPayload(chunk, index),
-    };
-  });
+        // ── Step 2: build Qdrant point objects ───────────────────────────
+        const points = batch.map((chunk, localIndex) => {
+          const globalIndex = batchIndex * EMBED_BATCH_SIZE + localIndex;
+          const vector = batchEmbeddings[localIndex];
+          validateVectorSize(vector);
 
-  await getQdrantClient().upsert(QDRANT_COLLECTION_NAME, {
-    wait: true,
-    points,
-  });
+          return {
+            id: randomUUID(),
+            vector,
+            payload: buildPayload(chunk, globalIndex),
+          };
+        });
 
-  return points.map((point) => ({
-    id: String(point.id),
-    chunkIndex: Number(point.payload.chunkIndex),
-    source: String(point.payload.source),
-  }));
+        // ── Step 3: upsert this batch to Qdrant ──────────────────────────
+        await getQdrantClient().upsert(QDRANT_COLLECTION_NAME, {
+          wait: true,
+          points,
+        });
+
+        return points.map((point) => ({
+          id: String(point.id),
+          chunkIndex: Number(point.payload.chunkIndex),
+          source: String(point.payload.source),
+        }));
+      },
+  );
+
+  const batchResults = await runWithConcurrency(CONCURRENCY_LIMIT, tasks);
+  return batchResults.flat();
 };
 
 export const searchSimilarChunks = async (
