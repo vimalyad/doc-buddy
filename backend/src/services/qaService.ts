@@ -10,6 +10,8 @@ import {
   RERANK_CANDIDATE_LIMIT,
 } from "./rerankService";
 import { PerfReporter, noopReporter } from "./perfReporter";
+import { getAllFiles } from "../config/database";
+import { extractAnswerText } from "../utils/llmText";
 
 type SourceMetadata = {
   id: string;
@@ -39,35 +41,16 @@ ${match.pageContent}`,
     )
     .join("\n\n");
 
-const extractAnswerText = (content: unknown): string => {
-  if (typeof content === "string") {
-    return content;
-  }
-
-  if (Array.isArray(content)) {
-    return content
-      .map((part) => {
-        if (typeof part === "string") {
-          return part;
-        }
-
-        if (
-          part &&
-          typeof part === "object" &&
-          "text" in part &&
-          typeof part.text === "string"
-        ) {
-          return part.text;
-        }
-
-        return "";
-      })
-      .join("")
-      .trim();
-  }
-
-  return "";
-};
+/**
+ * Builds the "document overview" — one line per uploaded document with its
+ * stored summary. Given to the answer model so it can field summary/overview
+ * questions and redirect gracefully when a question isn't covered by retrieval.
+ */
+const buildDocumentOverview = (): string =>
+  getAllFiles()
+    .filter((file) => file.summary && file.summary.trim().length > 0)
+    .map((file) => `- ${file.name}: ${file.summary}`)
+    .join("\n");
 
 const buildSources = (matches: RetrievedChunk[]): SourceMetadata[] =>
   matches.map((match) => ({
@@ -286,11 +269,13 @@ export const answerQuestion = async (
     reporter.skip("CRAG · corrective retry");
   }
 
+  const overview = buildDocumentOverview();
+
   const answer = await reporter.step(
     "Generation",
     async () => {
       const context = formatContext(matches);
-      const prompt = buildGroundedRagPrompt(question, context);
+      const prompt = buildGroundedRagPrompt(question, context, overview);
       const response = await getChatModel().invoke(prompt);
       return extractAnswerText(response.content);
     },

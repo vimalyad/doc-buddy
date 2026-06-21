@@ -7,6 +7,8 @@ export interface FileRecord {
   name: string;
   size: number;
   created_at: string;
+  /** Short LLM-generated summary used as a "document overview" at answer time. */
+  summary?: string;
 }
 
 const readDb = (): FileRecord[] => {
@@ -36,9 +38,13 @@ export const getAllFiles = (): FileRecord[] => {
   return readDb();
 };
 
-export const upsertFile = (name: string, size: number): void => {
+export const upsertFile = (
+  name: string,
+  size: number,
+  summary?: string,
+): void => {
   const files = readDb().filter((f) => f.name !== name);
-  files.unshift({ name, size, created_at: new Date().toISOString() });
+  files.unshift({ name, size, created_at: new Date().toISOString(), summary });
   writeDb(files);
 };
 
