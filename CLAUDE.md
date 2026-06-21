@@ -39,7 +39,8 @@ Backend `.env` (loaded from `backend/.env`, falling back to a root `../.env`):
 - `HUGGINGFACEHUB_API_KEY` — required; embeddings. **Note:** the code reads `HUGGINGFACEHUB_API_KEY` (see `config/embeddings.ts`), but `README.md` documents `HUGGINGFACEHUB_API_TOKEN`. The code name wins.
 - `QDRANT_URL`, `QDRANT_API_KEY` — required; Qdrant Cloud connection.
 - `PORT` — server port (defaults to 3000 in code, README uses 5000).
-- Optional tuning: `GROQ_MODEL` (default `llama-3.1-8b-instant`), `QDRANT_COLLECTION_NAME` (default `docbuddy_documents`), `EMBED_BATCH_SIZE` (default 20), `CONCURRENCY_LIMIT` (default 3; keep ≤3 on the HuggingFace free tier).
+- `COHERE_API_KEY` — **optional**; enables cross-encoder reranking via Cohere Rerank. If unset, retrieval gracefully falls back to the raw hybrid ordering (no reranking).
+- Optional tuning: `GROQ_MODEL` (default `llama-3.1-8b-instant`), `QDRANT_COLLECTION_NAME` (default `docbuddy_documents`), `EMBED_BATCH_SIZE` (default 20), `CONCURRENCY_LIMIT` (default 3; keep ≤3 on the HuggingFace free tier), `RERANK_MODEL` (default `rerank-v3.5`), `RERANK_CANDIDATE_LIMIT` (default 20; candidates pulled from hybrid search before reranking).
 
 Frontend `.env`:
 - `VITE_API_URL` — backend base URL (e.g. `http://localhost:5000`). Empty string means same-origin.
@@ -60,8 +61,9 @@ The system is a NotebookLM-style RAG pipeline. Backend endpoints (`backend/src/i
 `controllers/askController.ts` → `services/qaService.ts` `answerQuestion`:
 1. **Query rewrite** — the raw question is rewritten into a retrieval-optimized query (`prompts/queryRewritePrompt.ts`); silently falls back to the original on any failure.
 2. **Retrieval** — `searchSimilarChunks` runs **hybrid search**: a dense (semantic) arm using the HF embedding of the rewritten query and a sparse (BM25 keyword) arm from `utils/sparse.ts`, fused server-side with Qdrant **Reciprocal Rank Fusion (RRF)**. Because matches are child slices, it over-fetches (`limit * 4`) and **dedupes children back to distinct parents** (highest-ranked child wins), returning at most `limit` parent windows (top 5 default, capped at 10 via `MAX_MATCH_LIMIT`).
-3. **Generation** — `prompts/groundedRagPrompt.ts` builds a strict grounded prompt with numbered `[Source N]` context; the Groq LLM (`temperature: 0`) answers with bracketed citations.
-4. Response includes `answer`, `sources` (metadata), and `matches` (full chunks) so the frontend can render hover-able citations.
+3. **Reranking** (`services/rerankService.ts`, optional) — when `COHERE_API_KEY` is set, hybrid search over-fetches `RERANK_CANDIDATE_LIMIT` candidate parents, then a Cohere cross-encoder reranks them against the **original** question (not the rewritten query) and keeps the best `limit`, replacing each `score` with the relevance score. Disabled or on error, it falls back to the top `limit` of the hybrid ordering.
+4. **Generation** — `prompts/groundedRagPrompt.ts` builds a strict grounded prompt with numbered `[Source N]` context; the Groq LLM (`temperature: 0`) answers with bracketed citations.
+5. Response includes `answer`, `sources` (metadata), and `matches` (full chunks) so the frontend can render hover-able citations.
 
 ### Vector store conventions (`config/vectorStore.ts`)
 - Collection `docbuddy_documents` uses **named vectors**: a dense vector `dense` (**384-dim**, Cosine — must match the `all-MiniLM-L6-v2` embedding model) and a sparse vector `bm25` (`modifier: "idf"`, so Qdrant computes IDF and the app only sends raw term frequencies). Upserts write both per point; this requires the Qdrant Query API (`client.query` with `prefetch` + `fusion`), not the legacy `client.search`.

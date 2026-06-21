@@ -2,6 +2,11 @@ import { getChatModel } from "../config/groq";
 import { buildGroundedRagPrompt } from "../prompts/groundedRagPrompt";
 import { buildQueryRewritePrompt } from "../prompts/queryRewritePrompt";
 import { RetrievedChunk, searchSimilarChunks } from "./documentVectorStore";
+import {
+  isRerankEnabled,
+  rerankChunks,
+  RERANK_CANDIDATE_LIMIT,
+} from "./rerankService";
 
 type SourceMetadata = {
   id: string;
@@ -89,7 +94,17 @@ export const answerQuestion = async (
   limit: number,
 ): Promise<QaResponse> => {
   const rewrittenQuery = await rewriteQuery(question);
-  const matches = await searchSimilarChunks(rewrittenQuery, limit);
+
+  // When reranking is enabled, over-fetch a larger candidate pool from hybrid
+  // search and let the cross-encoder pick the best `limit`; otherwise retrieve
+  // exactly `limit`. The reranker scores against the original question (more
+  // natural for a cross-encoder than the rewritten retrieval query).
+  const candidateLimit = isRerankEnabled()
+    ? Math.max(RERANK_CANDIDATE_LIMIT, limit)
+    : limit;
+  const candidates = await searchSimilarChunks(rewrittenQuery, candidateLimit);
+  const matches = await rerankChunks(question, candidates, limit);
+
   const context = formatContext(matches);
   const prompt = buildGroundedRagPrompt(question, context);
   const response = await getChatModel().invoke(prompt);
