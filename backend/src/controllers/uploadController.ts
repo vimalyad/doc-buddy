@@ -5,6 +5,7 @@ import { upsertDocumentChunks, deleteDocumentBySource } from "../services/docume
 import { upsertFile } from "../config/database";
 import { createPerfReporter } from "../services/perfReporter";
 import { getIO } from "../realtime/io";
+import { generateDocumentSummary } from "../services/summaryService";
 
 export const uploadDocument = async (
   req: Request,
@@ -45,8 +46,14 @@ export const uploadDocument = async (
       "HF + Qdrant",
     );
 
+    const summary = await reporter.step(
+      "Summarize",
+      () => generateDocumentSummary(documents, file.originalname),
+      "Groq",
+    );
+
     await reporter.step("Save metadata", async () =>
-      upsertFile(file.originalname, file.size),
+      upsertFile(file.originalname, file.size, summary),
     );
 
     const parentCount = new Set(childChunks.map((c) => c.parentIndex)).size;
