@@ -70,23 +70,4 @@ When a `COHERE_API_KEY` is configured, the top hybrid candidates are re-scored b
    ```
 4. `npm run dev`
 
-## 🔑 Environment Variables
-
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `GROQ_API_KEY` | ✅ | — | LLM via Groq |
-| `HUGGINGFACEHUB_API_KEY` | ✅ | — | Embeddings via Hugging Face |
-| `QDRANT_URL` | ✅ | — | Qdrant Cloud endpoint |
-| `QDRANT_API_KEY` | ✅ | — | Qdrant Cloud API key |
-| `PORT` | ❌ | `3000` | Backend server port |
-| `COHERE_API_KEY` | ❌ | — | Enables cross-encoder reranking |
-| `GROQ_MODEL` | ❌ | `llama-3.1-8b-instant` | Groq model id |
-| `QDRANT_COLLECTION_NAME` | ❌ | `docbuddy_documents` | Qdrant collection |
-| `EMBED_BATCH_SIZE` | ❌ | `20` | Chunks per embedding call |
-| `CONCURRENCY_LIMIT` | ❌ | `3` | Concurrent embed/upsert batches (keep ≤3 on the HF free tier) |
-| `RERANK_MODEL` | ❌ | `rerank-v3.5` | Cohere rerank model |
-| `RERANK_CANDIDATE_LIMIT` | ❌ | `20` | Candidates fetched before reranking |
-
-> **Note:** The backend reads `HUGGINGFACEHUB_API_KEY` (not `HUGGINGFACEHUB_API_TOKEN`).
-
 ---
