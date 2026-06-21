@@ -9,6 +9,7 @@ import {
   Trash2,
   Copy,
   Check,
+  Activity,
 } from "lucide-react";
 
 interface RetrievedChunk {
@@ -337,11 +338,19 @@ function loadMessages(): Message[] {
 interface ChatInterfaceProps {
   hasDocuments: boolean;
   isInitialLoading: boolean;
+  socketId?: string;
+  activityOpen: boolean;
+  activityCount: number;
+  onToggleActivity: () => void;
 }
 
 export function ChatInterface({
   hasDocuments,
   isInitialLoading,
+  socketId,
+  activityOpen,
+  activityCount,
+  onToggleActivity,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>(loadMessages);
   const [input, setInput] = useState("");
@@ -409,6 +418,7 @@ export function ChatInterface({
       const response = await axios.post(`${API_URL}/api/ask`, {
         question: input,
         history,
+        socketId,
       });
       const data = response.data;
 
@@ -450,14 +460,34 @@ export function ChatInterface({
       {/* Header */}
       <div className="px-8 py-5 border-b border-neutral-900 bg-[#0a0a0a] flex items-center justify-between">
         <h2 className="text-[15px] font-medium text-neutral-400">Chat</h2>
-        <button
-          onClick={clearChat}
-          title="Clear chat history"
-          className="text-xs text-red-700 hover:text-red-400 transition-colors flex items-center gap-2"
-        >
-          <Trash2 className="w-4 h-4" />
-          Clear Chat
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onToggleActivity}
+            title="Toggle session activity"
+            className={[
+              "text-xs flex items-center gap-2 px-2.5 py-1.5 rounded-lg border transition-colors",
+              activityOpen
+                ? "text-emerald-400 border-emerald-900/60 bg-emerald-400/5"
+                : "text-neutral-400 border-neutral-800 hover:text-neutral-100 hover:border-neutral-700",
+            ].join(" ")}
+          >
+            <Activity className="w-4 h-4" />
+            Activity
+            {activityCount > 0 && (
+              <span className="font-mono text-[10px] bg-neutral-800 text-neutral-300 rounded-full px-1.5 leading-[1.4]">
+                {activityCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={clearChat}
+            title="Clear chat history"
+            className="text-xs text-red-700 hover:text-red-400 transition-colors flex items-center gap-2 px-2.5 py-1.5"
+          >
+            <Trash2 className="w-4 h-4" />
+            Clear Chat
+          </button>
+        </div>
       </div>
 
 
