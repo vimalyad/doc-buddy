@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { answerQuestion } from "../services/qaService";
 import { ChatTurn } from "../prompts/queryRewritePrompt";
+import { createPerfReporter } from "../services/perfReporter";
+import { getIO } from "../realtime/io";
 
 const DEFAULT_MATCH_LIMIT = 5;
 const MAX_MATCH_LIMIT = 10;
@@ -54,14 +56,19 @@ export const askQuestion = async (
   const question = String(req.body?.question ?? "").trim();
   const limit = normalizeLimit(req.body?.limit);
   const history = normalizeHistory(req.body?.history);
+  const socketId =
+    typeof req.body?.socketId === "string" ? req.body.socketId : undefined;
 
   if (!question) {
     res.status(400).json({ error: "Question is required" });
     return;
   }
 
+  // Streams per-step timings to the requesting client's activity panel.
+  const reporter = createPerfReporter(getIO(), socketId, "query", question);
+
   try {
-    const result = await answerQuestion(question, limit, history);
+    const result = await answerQuestion(question, limit, history, reporter);
 
     res.status(200).json({
       question,
@@ -76,5 +83,7 @@ export const askQuestion = async (
         : "Failed to retrieve relevant documents";
 
     res.status(500).json({ error: message });
+  } finally {
+    reporter.finish();
   }
 };
