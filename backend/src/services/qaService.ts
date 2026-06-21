@@ -1,6 +1,6 @@
 import { getChatModel } from "../config/groq";
 import { buildGroundedRagPrompt } from "../prompts/groundedRagPrompt";
-import { buildQueryRewritePrompt } from "../prompts/queryRewritePrompt";
+import { buildQueryRewritePrompt, ChatTurn } from "../prompts/queryRewritePrompt";
 import { RetrievedChunk, searchSimilarChunks } from "./documentVectorStore";
 import {
   isRerankEnabled,
@@ -76,11 +76,16 @@ const buildSources = (matches: RetrievedChunk[]): SourceMetadata[] =>
 
 /**
  * Rewrites the user's raw question into a retrieval-optimised search query.
+ * When `history` is supplied, the rewrite is conversational — follow-up
+ * questions are condensed into a standalone query using the prior turns.
  * Falls back to the original question if the rewrite fails or returns empty.
  */
-const rewriteQuery = async (question: string): Promise<string> => {
+const rewriteQuery = async (
+  question: string,
+  history: ChatTurn[],
+): Promise<string> => {
   try {
-    const prompt = buildQueryRewritePrompt(question);
+    const prompt = buildQueryRewritePrompt(question, history);
     const response = await getChatModel().invoke(prompt);
     const rewritten = extractAnswerText(response.content).trim();
     return rewritten.length > 0 ? rewritten : question;
@@ -92,8 +97,9 @@ const rewriteQuery = async (question: string): Promise<string> => {
 export const answerQuestion = async (
   question: string,
   limit: number,
+  history: ChatTurn[] = [],
 ): Promise<QaResponse> => {
-  const rewrittenQuery = await rewriteQuery(question);
+  const rewrittenQuery = await rewriteQuery(question, history);
 
   // When reranking is enabled, over-fetch a larger candidate pool from hybrid
   // search and let the cross-encoder pick the best `limit`; otherwise retrieve
