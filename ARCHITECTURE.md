@@ -71,7 +71,10 @@ Embed children (Hugging Face) + build BM25 sparse vectors (utils/sparse.ts)
 Upsert to Qdrant (each point = dense + sparse vector; payload stores the PARENT text)
    │  re-uploading the same filename replaces its chunks first
    ▼
-Record metadata in backend/files.json
+Summarize the document (one Groq call) → store the summary
+   │
+   ▼
+Record metadata + summary in backend/files.json
 ```
 
 ## Query flow (`POST /api/ask`)
@@ -102,7 +105,10 @@ Question (+ recent chat history)
    │
    ▼
 5. Generation  (prompts/groundedRagPrompt.ts)
-   Groq LLM answers ONLY from the numbered [Source N] context, with citations
+   Groq LLM answers ONLY from the numbered [Source N] context, with citations.
+   A "document overview" (stored per-document summaries) is also supplied so the
+   model can answer summary/overview questions and, when the context doesn't
+   cover the question, point the user to what the documents do cover.
    │
    ▼
 Response: { answer, sources, matches }  → frontend renders hover-able citations

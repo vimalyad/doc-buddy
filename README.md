@@ -5,6 +5,7 @@ DocBuddy is a full-stack RAG (Retrieval-Augmented Generation) application design
 ## ✨ Key Features
 - **Advanced RAG Pipeline**: Hybrid retrieval, parent-document context expansion, optional cross-encoder reranking, self-correcting retrieval (CRAG), and conversational follow-ups (see below).
 - **Self-Correcting Retrieval (CRAG)**: Before answering, the system grades whether the retrieved context is actually relevant and re-retrieves with an alternative query when it isn't — reducing answers based on irrelevant chunks.
+- **Document Summaries & Smart Fallback**: Every upload is auto-summarized. Ask for an overview of a document (or of all of them) and DocBuddy answers from the summaries, naming the relevant document; ask something the documents don't cover and it says so, then points you to what they *do* cover instead of guessing.
 - **Interactive Citations**: Hover over AI-generated citations (e.g., `[1]`, `p. 3`) to see the exact text snippet retrieved from your document.
 - **Multi-Format Support**: Seamlessly parses and indexes **PDF, TXT, and CSV** files.
 - **Conversational Memory**: Follow-up questions ("what about its limits?") are resolved against the chat history, so retrieval understands references and pronouns.
@@ -19,6 +20,7 @@ DocBuddy uses **parent-document splitting** to balance retrieval precision with 
 - **Parent windows**: 2,000 characters / 200 overlap — the large, context-rich passages fed to the LLM.
 - **Child slices**: 400 characters / 80 overlap — small, focused units that are embedded and indexed.
 - **Strategy**: Recursive character splitting keeps paragraphs and sentences together. Small children sharpen retrieval precision; the surrounding parent gives the LLM enough context to answer.
+- **Auto-summary**: After indexing, a single LLM call summarizes each document; the summary is stored and later used as a "document overview" at answer time.
 
 ### 2. Embedding & Storage
 - **Embeddings**: `sentence-transformers/all-MiniLM-L6-v2` (via Hugging Face Inference API), 384-dimensional.
@@ -46,6 +48,7 @@ CRAG is **enabled by default** and powered by the existing Groq key (no extra se
 - **Conversational query rewriting**: the raw question (plus recent chat turns) is rewritten into a standalone, retrieval-optimized search query.
 - **LLM**: Powered by **Llama 3** (via Groq API) for fast, high-quality reasoning.
 - **Groundedness**: A strict system prompt ensures the AI only answers based on the provided context and cites its sources using bracketed markers.
+- **Document overview**: The stored per-document summaries are supplied to the model so it can answer summary/overview questions (one document or all), and — when retrieval doesn't cover the question — tell the user what the documents *do* cover instead of guessing.
 
 ## 🛠 Tech Stack
 - **Frontend**: React, TypeScript, Vite, Tailwind CSS, Lucide React.
