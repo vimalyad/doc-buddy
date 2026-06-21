@@ -72,7 +72,7 @@ function EventCard({
 
   return (
     <div
-      className={`overflow-hidden rounded-xl border bg-[#0c0c0c] ${event.running ? "border-emerald-900/60" : "border-neutral-900"}`}
+      className={`shrink-0 overflow-hidden rounded-xl border bg-[#0c0c0c] ${event.running ? "border-emerald-900/60" : "border-neutral-900"}`}
     >
       <button
         type="button"
