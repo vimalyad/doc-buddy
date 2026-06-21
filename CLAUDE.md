@@ -52,14 +52,14 @@ The system is a NotebookLM-style RAG pipeline. Backend endpoints (`backend/src/i
 ### Ingestion flow (`POST /api/upload`)
 1. `middleware/upload.ts` — Multer with **in-memory storage** (files live as Buffers, never written to disk), 50MB limit, restricted to PDF/TXT/CSV by MIME type or extension.
 2. `parsers/localParsers.ts` — dispatches by extension to LangChain `PDFLoader` (one Document per page), raw `text`, or `CSVLoader`. Each Document gets `metadata.source = originalname`.
-3. `parsers/textSplitter.ts` — `RecursiveCharacterTextSplitter`, chunk size **2000**, overlap **400**.
-4. `services/documentVectorStore.ts` `upsertDocumentChunks` — embeds and upserts in **concurrent batches** (`runWithConcurrency` over `EMBED_BATCH_SIZE` batches, `CONCURRENCY_LIMIT` in flight). Re-uploading the same filename first calls `deleteDocumentBySource` so chunks are replaced, not duplicated.
+3. `parsers/textSplitter.ts` `splitIntoParentChildChunks` — **parent-document splitting**. Each document is split into large **parent** windows (size **2000**, overlap **200**) and each parent into small **child** slices (size **400**, overlap **80**). Returns a flat `ChildChunk[]` where every child carries its `childContent`, its parent's full `parentContent`, and a per-document `parentIndex`.
+4. `services/documentVectorStore.ts` `upsertDocumentChunks` — embeds the **child** text (dense + sparse) for precision but stores the **parent** window as the payload `pageContent` (so the LLM later reads the larger context). Upserts in **concurrent batches** (`runWithConcurrency` over `EMBED_BATCH_SIZE` batches, `CONCURRENCY_LIMIT` in flight). Re-uploading the same filename first calls `deleteDocumentBySource` so chunks are replaced, not duplicated.
 5. `config/database.ts` — file metadata is tracked in a flat-file JSON DB at `backend/files.json` (not a real database).
 
 ### Query flow (`POST /api/ask`)
 `controllers/askController.ts` → `services/qaService.ts` `answerQuestion`:
 1. **Query rewrite** — the raw question is rewritten into a retrieval-optimized query (`prompts/queryRewritePrompt.ts`); silently falls back to the original on any failure.
-2. **Retrieval** — `searchSimilarChunks` runs **hybrid search**: a dense (semantic) arm using the HF embedding of the rewritten query and a sparse (BM25 keyword) arm from `utils/sparse.ts`, each prefetching `PREFETCH_LIMIT` (20) candidates, fused server-side with Qdrant **Reciprocal Rank Fusion (RRF)** down to the requested limit (top 5 default, capped at 10 via `MAX_MATCH_LIMIT`).
+2. **Retrieval** — `searchSimilarChunks` runs **hybrid search**: a dense (semantic) arm using the HF embedding of the rewritten query and a sparse (BM25 keyword) arm from `utils/sparse.ts`, fused server-side with Qdrant **Reciprocal Rank Fusion (RRF)**. Because matches are child slices, it over-fetches (`limit * 4`) and **dedupes children back to distinct parents** (highest-ranked child wins), returning at most `limit` parent windows (top 5 default, capped at 10 via `MAX_MATCH_LIMIT`).
 3. **Generation** — `prompts/groundedRagPrompt.ts` builds a strict grounded prompt with numbered `[Source N]` context; the Groq LLM (`temperature: 0`) answers with bracketed citations.
 4. Response includes `answer`, `sources` (metadata), and `matches` (full chunks) so the frontend can render hover-able citations.
 
