@@ -1,3 +1,4 @@
+import http from "http";
 import express, { Request, Response } from "express";
 import dotenv from "dotenv";
 import multer from "multer";
@@ -5,6 +6,7 @@ import path from "path";
 import fs from "fs";
 import cors from "cors";
 import helmet from "helmet";
+import { Server as SocketIOServer } from "socket.io";
 import { askQuestion } from "./controllers/askController";
 import { uploadDocument } from "./controllers/uploadController";
 import { deleteDocument } from "./controllers/deleteController";
@@ -12,6 +14,7 @@ import { getFiles } from "./controllers/fileController";
 import { upload } from "./middleware/upload";
 import { ensureQdrantCollection, resetQdrantCollection } from "./config/vectorStore";
 import { initDb, resetDb } from "./config/database";
+import { BOOT_ID, setIO } from "./realtime/io";
 
 // Load environment variables from backend/.env or root .env
 const envPath = fs.existsSync(".env")
@@ -31,7 +34,12 @@ app.get("/", (req: Request, res: Response) => {
 });
 
 app.get("/api/health", (req: Request, res: Response) => {
-  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+  // `bootId` lets the frontend detect a backend restart (new process → new id).
+  res.status(200).json({
+    status: "ok",
+    bootId: BOOT_ID,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.post(
@@ -58,7 +66,13 @@ app.post("/api/ask", askQuestion);
 app.post("/api/delete", deleteDocument);
 app.get("/api/files", getFiles);
 
-app.listen(port, async () => {
+// Wrap Express in an HTTP server so Socket.IO can share the same port. The
+// realtime channel streams per-step performance events to the activity panel.
+const httpServer = http.createServer(app);
+const io = new SocketIOServer(httpServer, { cors: { origin: "*" } });
+setIO(io);
+
+httpServer.listen(port, async () => {
   console.log(`Server is running on port ${port}`);
 
   // Data persists across restarts by default. Set RESET_ON_STARTUP=true to wipe
