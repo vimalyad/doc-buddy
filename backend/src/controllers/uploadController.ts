@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { parseLocalDocument } from "../parsers/localParsers";
-import { splitDocuments, splitterConfig } from "../parsers/textSplitter";
+import { splitIntoParentChildChunks, splitterConfig } from "../parsers/textSplitter";
 import { upsertDocumentChunks, deleteDocumentBySource } from "../services/documentVectorStore";
 import { upsertFile } from "../config/database";
 
@@ -15,10 +15,10 @@ export const uploadDocument = async (
 
   try {
     const documents = await parseLocalDocument(req.file);
-    const chunks = await splitDocuments(documents);
+    const childChunks = await splitIntoParentChildChunks(documents);
 
     await deleteDocumentBySource(req.file.originalname);
-    const storedChunks = await upsertDocumentChunks(chunks);
+    const storedChunks = await upsertDocumentChunks(childChunks);
 
     upsertFile(req.file.originalname, req.file.size);
 
@@ -26,7 +26,7 @@ export const uploadDocument = async (
       message: "File uploaded successfully",
       file: req.file.originalname,
       documents: documents.length,
-      chunks: chunks.length,
+      chunks: childChunks.length,
       storedChunks: storedChunks.length,
       splitter: splitterConfig,
     });
