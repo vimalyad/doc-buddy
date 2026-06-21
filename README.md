@@ -9,7 +9,7 @@ DocBuddy is a full-stack RAG (Retrieval-Augmented Generation) application design
 - **Multi-Format Support**: Seamlessly parses and indexes **PDF, TXT, and CSV** files.
 - **Conversational Memory**: Follow-up questions ("what about its limits?") are resolved against the chat history, so retrieval understands references and pronouns.
 - **Premium UI/UX**: A responsive, dark-mode dual-pane interface with auto-focusing chat and floating toast notifications.
-- **Zero-Persistence Option**: Configure the backend to wipe state on restart or persist data for production.
+- **Persistent by Default**: Uploaded documents survive restarts. Optionally wipe everything on boot with `RESET_ON_STARTUP=true` for a clean slate.
 
 ## 🧠 The RAG Pipeline
 
@@ -70,6 +70,9 @@ CRAG is **enabled by default** and powered by the existing Groq key (no extra se
 
    # Optional — Corrective RAG is on by default; set false to disable
    # ENABLE_CRAG=false
+
+   # Optional — data persists by default; set true to wipe on every restart
+   # RESET_ON_STARTUP=true
    ```
 4. `npm run build && npm start`
 
