@@ -25,13 +25,14 @@ type QaResponse = {
   rewrittenQuery?: string;
 };
 
+// Only the source number, filename, and content are exposed to the LLM.
+// Internal retrieval scores and chunk indices are deliberately omitted — the
+// model used to copy them verbatim and degenerate into repeated citation dumps.
 const formatContext = (matches: RetrievedChunk[]): string =>
   matches
     .map(
       (match, index) => `[Source ${index + 1}]
 File: ${match.source}
-Chunk: ${match.chunkIndex ?? "unknown"}
-Score: ${match.score}
 Content:
 ${match.pageContent}`,
     )

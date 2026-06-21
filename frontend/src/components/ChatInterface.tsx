@@ -219,11 +219,19 @@ function renderInline(
   });
 }
 
+// Guard against model repetition loops: collapse runs of the same citation
+// marker (e.g. "[1][1][1]..." or "[1] [1] [1]") down to a single marker so a
+// degenerate answer can't render hundreds of duplicate citation badges.
+function collapseRepeatedCitations(text: string): string {
+  return text.replace(/(\[\d+\])(?:\s*\1)+/g, "$1");
+}
+
 function renderMessageContent(
-  content: string,
+  rawContent: string,
   matches: RetrievedChunk[] = [],
   containerRef: React.RefObject<HTMLDivElement | null>,
 ): React.ReactNode {
+  const content = collapseRepeatedCitations(rawContent);
   // Split on fenced code blocks: ```lang\n...\n```
   const fencedRegex = /```([^\n]*)\n([\s\S]*?)```/g;
   const segments: React.ReactNode[] = [];
