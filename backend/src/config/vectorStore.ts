@@ -5,6 +5,14 @@ export const QDRANT_COLLECTION_NAME =
 export const QDRANT_VECTOR_SIZE = 384;
 export const QDRANT_DISTANCE = "Cosine";
 
+/**
+ * Named vectors for hybrid retrieval. The collection stores a dense semantic
+ * vector and a sparse BM25-style keyword vector per point; queries fuse the two
+ * with Reciprocal Rank Fusion (see `documentVectorStore.searchSimilarChunks`).
+ */
+export const DENSE_VECTOR_NAME = "dense";
+export const SPARSE_VECTOR_NAME = "bm25";
+
 export const ensureQdrantCollection = async (): Promise<void> => {
   const client = getQdrantClient();
   const collection = await client.collectionExists(QDRANT_COLLECTION_NAME);
@@ -15,8 +23,17 @@ export const ensureQdrantCollection = async (): Promise<void> => {
 
   await client.createCollection(QDRANT_COLLECTION_NAME, {
     vectors: {
-      size: QDRANT_VECTOR_SIZE,
-      distance: QDRANT_DISTANCE,
+      [DENSE_VECTOR_NAME]: {
+        size: QDRANT_VECTOR_SIZE,
+        distance: QDRANT_DISTANCE,
+      },
+    },
+    sparse_vectors: {
+      // `idf` lets Qdrant compute inverse-document-frequency weighting from
+      // collection statistics, so we only send raw term frequencies.
+      [SPARSE_VECTOR_NAME]: {
+        modifier: "idf",
+      },
     },
   });
 
