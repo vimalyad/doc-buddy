@@ -10,7 +10,7 @@ import { uploadDocument } from "./controllers/uploadController";
 import { deleteDocument } from "./controllers/deleteController";
 import { getFiles } from "./controllers/fileController";
 import { upload } from "./middleware/upload";
-import { resetQdrantCollection } from "./config/vectorStore";
+import { ensureQdrantCollection, resetQdrantCollection } from "./config/vectorStore";
 import { initDb, resetDb } from "./config/database";
 
 // Load environment variables from backend/.env or root .env
@@ -60,12 +60,23 @@ app.get("/api/files", getFiles);
 
 app.listen(port, async () => {
   console.log(`Server is running on port ${port}`);
-  
+
+  // Data persists across restarts by default. Set RESET_ON_STARTUP=true to wipe
+  // the file metadata and the Qdrant collection on boot (clean-slate mode).
+  const resetOnStartup =
+    (process.env.RESET_ON_STARTUP ?? "").trim().toLowerCase() === "true";
+
   try {
     await initDb();
-    await resetDb();
-    await resetQdrantCollection();
+
+    if (resetOnStartup) {
+      await resetDb();
+      await resetQdrantCollection();
+      console.log("RESET_ON_STARTUP=true → wiped file DB and Qdrant collection");
+    } else {
+      await ensureQdrantCollection();
+    }
   } catch (err) {
-    console.error("Failed to reset Qdrant collection on startup:", err);
+    console.error("Failed to initialize storage on startup:", err);
   }
 });

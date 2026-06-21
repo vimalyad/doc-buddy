@@ -110,8 +110,8 @@ Response: { answer, sources, matches }  → frontend renders hover-able citation
 - **Grounded by construction**: the LLM only sees retrieved context and is instructed to answer from it and cite sources — it does not answer from prior knowledge.
 - **Graceful degradation**: query rewrite, reranking, and CRAG each fall back to the previous stage's result on any error, so a single failing step never breaks an answer.
 - **Free-tier friendly**: reranking (Cohere) is optional; everything else runs on Groq + Hugging Face + Qdrant free tiers.
-- **Zero-persistence mode (gotcha)**: on startup `index.ts` calls `resetDb()` and `resetQdrantCollection()`, wiping `files.json` and the Qdrant collection on every boot. Remove those calls to persist data across restarts.
+- **Persistence**: data persists across restarts by default. On startup `index.ts` runs only non-destructive setup (`initDb()` + `ensureQdrantCollection()`). Setting `RESET_ON_STARTUP=true` wipes `files.json` and the Qdrant collection on boot (clean-slate mode).
 
 ## Configuration
 
-Behavior is tuned via environment variables (see `README.md`): required keys for Groq, Hugging Face, and Qdrant; optional `COHERE_API_KEY` (reranking) and `ENABLE_CRAG` (Corrective RAG, on by default).
+Behavior is tuned via environment variables (see `README.md`): required keys for Groq, Hugging Face, and Qdrant; optional `COHERE_API_KEY` (reranking), `ENABLE_CRAG` (Corrective RAG, on by default), and `RESET_ON_STARTUP` (wipe state on boot, off by default).
