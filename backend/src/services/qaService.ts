@@ -116,9 +116,9 @@ const retrieveAndRerank = async (
 
 type RelevanceGrade = "correct" | "ambiguous" | "incorrect";
 
-/** Corrective RAG is opt-in (extra Groq calls per query). Enable with ENABLE_CRAG=true. */
+/** Corrective RAG runs by default (extra Groq calls per query). Disable with ENABLE_CRAG=false. */
 const isCragEnabled = (): boolean =>
-  (process.env.ENABLE_CRAG ?? "").trim().toLowerCase() === "true";
+  (process.env.ENABLE_CRAG ?? "").trim().toLowerCase() !== "false";
 
 /** Parses the grader's JSON reply defensively; any malformed output → "correct" (no-op). */
 const parseGrade = (
