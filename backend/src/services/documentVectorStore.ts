@@ -6,9 +6,18 @@ import {
   ensureQdrantCollection,
   QDRANT_COLLECTION_NAME,
   QDRANT_VECTOR_SIZE,
+  DENSE_VECTOR_NAME,
+  SPARSE_VECTOR_NAME,
 } from "../config/vectorStore";
 import { chunkArray, runWithConcurrency } from "../utils/concurrency";
 import { EMBED_BATCH_SIZE, CONCURRENCY_LIMIT } from "../config/ingestion";
+import { buildSparseVector } from "../utils/sparse";
+
+/**
+ * Number of candidates each retrieval arm (dense + sparse) fetches before
+ * Reciprocal Rank Fusion merges them down to the requested `limit`.
+ */
+const PREFETCH_LIMIT = 20;
 
 type StoredChunk = {
   id: string;
@@ -76,7 +85,10 @@ export const upsertDocumentChunks = async (
 
           return {
             id: randomUUID(),
-            vector,
+            vector: {
+              [DENSE_VECTOR_NAME]: vector,
+              [SPARSE_VECTOR_NAME]: buildSparseVector(chunk.pageContent),
+            },
             payload: buildPayload(chunk, globalIndex),
           };
         });
@@ -108,14 +120,30 @@ export const searchSimilarChunks = async (
   const queryEmbedding = await getEmbeddings().embedQuery(query);
   validateVectorSize(queryEmbedding);
 
-  const results = await getQdrantClient().search(QDRANT_COLLECTION_NAME, {
-    vector: queryEmbedding,
+  const sparseQuery = buildSparseVector(query);
+
+  // Hybrid retrieval: run a dense (semantic) and a sparse (BM25 keyword) arm in
+  // parallel, then fuse their rankings with Reciprocal Rank Fusion.
+  const response = await getQdrantClient().query(QDRANT_COLLECTION_NAME, {
+    prefetch: [
+      {
+        query: queryEmbedding,
+        using: DENSE_VECTOR_NAME,
+        limit: PREFETCH_LIMIT,
+      },
+      {
+        query: sparseQuery,
+        using: SPARSE_VECTOR_NAME,
+        limit: PREFETCH_LIMIT,
+      },
+    ],
+    query: { fusion: "rrf" },
     limit,
     with_payload: true,
     with_vector: false,
   });
 
-  return results.map((result) => {
+  return response.points.map((result) => {
     const payload = result.payload ?? {};
     const chunkIndex = getPayloadField(payload, "chunkIndex");
 
