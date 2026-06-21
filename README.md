@@ -8,6 +8,7 @@ DocBuddy is a full-stack RAG (Retrieval-Augmented Generation) application design
 - **Interactive Citations**: Hover over AI-generated citations (e.g., `[1]`, `p. 3`) to see the exact text snippet retrieved from your document.
 - **Multi-Format Support**: Seamlessly parses and indexes **PDF, TXT, and CSV** files.
 - **Conversational Memory**: Follow-up questions ("what about its limits?") are resolved against the chat history, so retrieval understands references and pronouns.
+- **Live Activity Panel**: A toggleable session feed (streamed over WebSocket) where every upload and query is a collapsible event showing per-step timings — parse/split/embed for ingestion; rewrite → retrieval → rerank → CRAG → generation for queries — including steps that were skipped. A backend restart is detected automatically and starts a fresh session.
 - **Premium UI/UX**: A responsive, dark-mode dual-pane interface with auto-focusing chat and floating toast notifications.
 - **Persistent by Default**: Uploaded documents survive restarts. Optionally wipe everything on boot with `RESET_ON_STARTUP=true` for a clean slate.
 

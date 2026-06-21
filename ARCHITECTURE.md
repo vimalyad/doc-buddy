@@ -36,6 +36,7 @@ DocBuddy is a NotebookLM-style RAG (Retrieval-Augmented Generation) app. Users u
 | **Vector store** | Qdrant Cloud | Stores dense + sparse vectors; hybrid search with RRF fusion. |
 | **Reranker** | Cohere Rerank (optional) | Cross-encoder re-scoring of candidates for precision. |
 | **LLM** | Groq (Llama 3.1) | Query rewriting, relevance grading (CRAG), and grounded answer generation. |
+| **Realtime** | Socket.IO | Streams per-step performance events to the live activity panel; carries the boot id for restart detection. |
 | **Metadata DB** | Flat JSON file (`backend/files.json`) | Tracks uploaded file names/sizes (not a real database). |
 
 ## API endpoints
@@ -46,7 +47,9 @@ DocBuddy is a NotebookLM-style RAG (Retrieval-Augmented Generation) app. Users u
 | `POST` | `/api/ask` | Answer a question from indexed content (with optional chat history). |
 | `POST` | `/api/delete` | Remove a document's chunks by source filename. |
 | `GET` | `/api/files` | List indexed files. |
-| `GET` | `/api/health` | Health check. |
+| `GET` | `/api/health` | Health check; returns a per-process `bootId` used to detect restarts. |
+
+A **Socket.IO** channel runs on the same port. The frontend sends its `socket.id` with each `/api/ask` and `/api/upload`; the backend streams `activity:start` / `activity:step` / `activity:end` events back to that client to drive the live activity panel.
 
 ## Ingestion flow (`POST /api/upload`)
 

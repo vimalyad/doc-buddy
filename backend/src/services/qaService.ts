@@ -9,6 +9,7 @@ import {
   rerankChunks,
   RERANK_CANDIDATE_LIMIT,
 } from "./rerankService";
+import { PerfReporter, noopReporter } from "./perfReporter";
 
 type SourceMetadata = {
   id: string;
@@ -204,23 +205,35 @@ const applyCorrectiveRetrieval = async (
   failedQuery: string,
   matches: RetrievedChunk[],
   limit: number,
+  reporter: PerfReporter,
 ): Promise<RetrievedChunk[]> => {
-  const { grade, relevantIndices } = await gradeRelevance(question, matches);
+  const { grade, relevantIndices } = await reporter.step("CRAG · grade", () =>
+    gradeRelevance(question, matches),
+  );
+  reporter.meta("CRAG grade", grade);
 
   if (grade === "correct") {
+    reporter.skip("CRAG · corrective retry");
     return matches;
   }
 
   if (grade === "ambiguous") {
+    reporter.skip("CRAG · corrective retry");
     const filtered = relevantIndices
       .map((index) => matches[index - 1])
       .filter((match): match is RetrievedChunk => Boolean(match));
-    return filtered.length > 0 ? filtered : matches;
+    if (filtered.length > 0) {
+      reporter.meta("CRAG grade", `ambiguous → ${filtered.length} kept`);
+      return filtered;
+    }
+    return matches;
   }
 
   // grade === "incorrect" → one bounded corrective retry.
-  const correctiveQuery = await rewriteCorrectiveQuery(question, failedQuery);
-  const retried = await retrieveAndRerank(correctiveQuery, question, limit);
+  const retried = await reporter.step("CRAG · corrective retry", async () => {
+    const correctiveQuery = await rewriteCorrectiveQuery(question, failedQuery);
+    return retrieveAndRerank(correctiveQuery, question, limit);
+  });
   return retried.length > 0 ? retried : matches;
 };
 
@@ -228,25 +241,62 @@ export const answerQuestion = async (
   question: string,
   limit: number,
   history: ChatTurn[] = [],
+  reporter: PerfReporter = noopReporter,
 ): Promise<QaResponse> => {
-  const rewrittenQuery = await rewriteQuery(question, history);
+  const rewrittenQuery = await reporter.step("Query rewrite", () =>
+    rewriteQuery(question, history),
+  );
+  if (rewrittenQuery !== question) {
+    reporter.meta("Rewritten", rewrittenQuery);
+  }
 
-  let matches = await retrieveAndRerank(rewrittenQuery, question, limit);
+  const candidateLimit = isRerankEnabled()
+    ? Math.max(RERANK_CANDIDATE_LIMIT, limit)
+    : limit;
+  const candidates = await reporter.step(
+    "Hybrid retrieval",
+    () => searchSimilarChunks(rewrittenQuery, candidateLimit),
+    "dense+BM25",
+  );
 
-  // Corrective RAG (opt-in): grade retrieval and self-correct before answering.
+  let matches: RetrievedChunk[];
+  if (isRerankEnabled()) {
+    matches = await reporter.step(
+      "Rerank",
+      () => rerankChunks(question, candidates, limit),
+      "Cohere",
+    );
+  } else {
+    reporter.skip("Rerank", "no COHERE_API_KEY");
+    matches = candidates.slice(0, limit);
+  }
+  reporter.meta("Retrieved", `${candidates.length} → ${matches.length}`);
+
+  // Corrective RAG (default on): grade retrieval and self-correct before answering.
   if (isCragEnabled() && matches.length > 0) {
     matches = await applyCorrectiveRetrieval(
       question,
       rewrittenQuery,
       matches,
       limit,
+      reporter,
     );
+  } else {
+    reporter.skip("CRAG · grade", isCragEnabled() ? undefined : "disabled");
+    reporter.skip("CRAG · corrective retry");
   }
 
-  const context = formatContext(matches);
-  const prompt = buildGroundedRagPrompt(question, context);
-  const response = await getChatModel().invoke(prompt);
-  const answer = extractAnswerText(response.content);
+  const answer = await reporter.step(
+    "Generation",
+    async () => {
+      const context = formatContext(matches);
+      const prompt = buildGroundedRagPrompt(question, context);
+      const response = await getChatModel().invoke(prompt);
+      return extractAnswerText(response.content);
+    },
+    "Groq",
+  );
+  reporter.meta("Answer", `${answer.length} chars`);
 
   return {
     answer,

@@ -70,9 +70,10 @@ function ToastStack({
 interface FileUploadProps {
   uploadedFiles: PersistedFile[];
   onRefresh: () => Promise<void>;
+  socketId?: string;
 }
 
-export function FileUpload({ uploadedFiles, onRefresh }: FileUploadProps) {
+export function FileUpload({ uploadedFiles, onRefresh, socketId }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -118,6 +119,7 @@ export function FileUpload({ uploadedFiles, onRefresh }: FileUploadProps) {
     try {
       const formData = new FormData();
       formData.append("file", nextFile);
+      if (socketId) formData.append("socketId", socketId);
       await axios.post(`${API_URL}/api/upload`, formData);
       await onRefresh();
     } catch (err) {
