@@ -1,5 +1,4 @@
 import { randomUUID } from "crypto";
-import { Document } from "@langchain/core/documents";
 import { getEmbeddings } from "../config/embeddings";
 import { getQdrantClient } from "../config/qdrant";
 import {
@@ -12,6 +11,7 @@ import {
 import { chunkArray, runWithConcurrency } from "../utils/concurrency";
 import { EMBED_BATCH_SIZE, CONCURRENCY_LIMIT } from "../config/ingestion";
 import { buildSparseVector } from "../utils/sparse";
+import { ChildChunk } from "../parsers/textSplitter";
 
 /**
  * Number of candidates each retrieval arm (dense + sparse) fetches before
@@ -34,11 +34,16 @@ export type RetrievedChunk = {
   metadata: unknown;
 };
 
-const buildPayload = (chunk: Document, chunkIndex: number) => ({
-  pageContent: chunk.pageContent,
-  chunkIndex,
-  source: String(chunk.metadata.source ?? "unknown"),
-  metadata: chunk.metadata,
+/**
+ * Payload stored per child point. `pageContent` is the **parent** window (what
+ * the LLM ultimately reads); `chunkIndex` is the parent index, used together
+ * with `source` to dedupe children back to distinct parents at query time.
+ */
+const buildPayload = (child: ChildChunk) => ({
+  pageContent: child.parentContent,
+  chunkIndex: child.parentIndex,
+  source: child.source,
+  metadata: child.metadata,
 });
 
 const validateVectorSize = (vector: number[]): void => {
@@ -55,7 +60,7 @@ const getPayloadField = (
 ): unknown => payload?.[key];
 
 export const upsertDocumentChunks = async (
-  chunks: Document[],
+  chunks: ChildChunk[],
 ): Promise<StoredChunk[]> => {
   if (chunks.length === 0) {
     return [];
@@ -66,20 +71,21 @@ export const upsertDocumentChunks = async (
   const batches = chunkArray(chunks, EMBED_BATCH_SIZE);
 
   console.log(
-    `[upsertDocumentChunks] ${chunks.length} chunks → ${batches.length} batch(es), concurrency=${CONCURRENCY_LIMIT}`,
+    `[upsertDocumentChunks] ${chunks.length} child chunks → ${batches.length} batch(es), concurrency=${CONCURRENCY_LIMIT}`,
   );
 
   const tasks = batches.map(
-    (batch, batchIndex) =>
+    (batch) =>
       async (): Promise<StoredChunk[]> => {
-        // ── Step 1: embed this batch via HuggingFace ──────────────────────
+        // ── Step 1: embed the child slices via HuggingFace ────────────────
+        // Dense + sparse vectors are both built from the small child text so
+        // retrieval stays precise; the parent window is stored in the payload.
         const batchEmbeddings = await getEmbeddings().embedDocuments(
-          batch.map((chunk) => chunk.pageContent),
+          batch.map((child) => child.childContent),
         );
 
         // ── Step 2: build Qdrant point objects ───────────────────────────
-        const points = batch.map((chunk, localIndex) => {
-          const globalIndex = batchIndex * EMBED_BATCH_SIZE + localIndex;
+        const points = batch.map((child, localIndex) => {
           const vector = batchEmbeddings[localIndex];
           validateVectorSize(vector);
 
@@ -87,9 +93,9 @@ export const upsertDocumentChunks = async (
             id: randomUUID(),
             vector: {
               [DENSE_VECTOR_NAME]: vector,
-              [SPARSE_VECTOR_NAME]: buildSparseVector(chunk.pageContent),
+              [SPARSE_VECTOR_NAME]: buildSparseVector(child.childContent),
             },
-            payload: buildPayload(chunk, globalIndex),
+            payload: buildPayload(child),
           };
         });
 
@@ -122,6 +128,11 @@ export const searchSimilarChunks = async (
 
   const sparseQuery = buildSparseVector(query);
 
+  // Over-fetch child matches: several children can map to the same parent, so we
+  // pull more candidates than requested and dedupe down to distinct parents.
+  const candidateLimit = limit * 4;
+  const prefetchLimit = Math.max(PREFETCH_LIMIT, candidateLimit);
+
   // Hybrid retrieval: run a dense (semantic) and a sparse (BM25 keyword) arm in
   // parallel, then fuse their rankings with Reciprocal Rank Fusion.
   const response = await getQdrantClient().query(QDRANT_COLLECTION_NAME, {
@@ -129,33 +140,51 @@ export const searchSimilarChunks = async (
       {
         query: queryEmbedding,
         using: DENSE_VECTOR_NAME,
-        limit: PREFETCH_LIMIT,
+        limit: prefetchLimit,
       },
       {
         query: sparseQuery,
         using: SPARSE_VECTOR_NAME,
-        limit: PREFETCH_LIMIT,
+        limit: prefetchLimit,
       },
     ],
     query: { fusion: "rrf" },
-    limit,
+    limit: candidateLimit,
     with_payload: true,
     with_vector: false,
   });
 
-  return response.points.map((result) => {
+  // Dedupe children back to distinct parents (highest-ranked child wins), then
+  // return at most `limit` parent windows.
+  const seenParents = new Set<string>();
+  const parents: RetrievedChunk[] = [];
+
+  for (const result of response.points) {
     const payload = result.payload ?? {};
     const chunkIndex = getPayloadField(payload, "chunkIndex");
+    const source = String(getPayloadField(payload, "source") ?? "unknown");
+    const parentKey = `${source}::${String(chunkIndex)}`;
 
-    return {
+    if (seenParents.has(parentKey)) {
+      continue;
+    }
+    seenParents.add(parentKey);
+
+    parents.push({
       id: String(result.id),
       score: result.score,
       pageContent: String(getPayloadField(payload, "pageContent") ?? ""),
       chunkIndex: typeof chunkIndex === "number" ? chunkIndex : null,
-      source: String(getPayloadField(payload, "source") ?? "unknown"),
+      source,
       metadata: getPayloadField(payload, "metadata") ?? null,
-    };
-  });
+    });
+
+    if (parents.length >= limit) {
+      break;
+    }
+  }
+
+  return parents;
 };
 
 export const deleteDocumentBySource = async (source: string): Promise<void> => {
