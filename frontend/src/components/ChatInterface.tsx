@@ -391,8 +391,16 @@ export function ChatInterface({
     setIsLoading(true);
 
     try {
+      // Send recent turns so the backend can resolve follow-up questions
+      // ("what about its limits?") into standalone retrieval queries. `messages`
+      // here is the pre-update conversation (the new question isn't in it yet).
+      const history = messages
+        .slice(-6)
+        .map((m) => ({ role: m.role, content: m.content }));
+
       const response = await axios.post(`${API_URL}/api/ask`, {
         question: input,
+        history,
       });
       const data = response.data;
 
