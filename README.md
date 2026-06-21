@@ -3,7 +3,8 @@
 DocBuddy is a full-stack RAG (Retrieval-Augmented Generation) application designed to mirror the Google NotebookLM experience. It allows users to upload documents and have grounded, citation-rich conversations with their data.
 
 ## ✨ Key Features
-- **Advanced RAG Pipeline**: Hybrid retrieval, parent-document context expansion, optional cross-encoder reranking, and conversational follow-ups (see below).
+- **Advanced RAG Pipeline**: Hybrid retrieval, parent-document context expansion, optional cross-encoder reranking, self-correcting retrieval (CRAG), and conversational follow-ups (see below).
+- **Self-Correcting Retrieval (CRAG)**: Before answering, the system grades whether the retrieved context is actually relevant and re-retrieves with an alternative query when it isn't — reducing answers based on irrelevant chunks.
 - **Interactive Citations**: Hover over AI-generated citations (e.g., `[1]`, `p. 3`) to see the exact text snippet retrieved from your document.
 - **Multi-Format Support**: Seamlessly parses and indexes **PDF, TXT, and CSV** files.
 - **Conversational Memory**: Follow-up questions ("what about its limits?") are resolved against the chat history, so retrieval understands references and pronouns.
@@ -32,7 +33,15 @@ Because matches are child slices, results are deduped back to distinct **parent*
 ### 4. Reranking (optional)
 When a `COHERE_API_KEY` is configured, the top hybrid candidates are re-scored by a **Cohere cross-encoder reranker**, which jointly evaluates each `(question, passage)` pair for higher precision. If no key is set, retrieval gracefully falls back to the hybrid ordering.
 
-### 5. Query Rewriting & Generation
+### 5. Corrective RAG (CRAG)
+Before generating, a single Groq call grades whether the retrieved sources can actually answer the question:
+- **Correct** → answer from the retrieved context as-is.
+- **Ambiguous** → keep only the sources graded relevant.
+- **Incorrect** → run one bounded corrective retry with an alternative query, then answer (or abstain).
+
+CRAG is **enabled by default** and powered by the existing Groq key (no extra service). It fails open — any grading hiccup is treated as "correct" so an answer is never blocked — and the corrective retry is capped at one (no loops). Set `ENABLE_CRAG=false` to disable.
+
+### 6. Query Rewriting & Generation
 - **Conversational query rewriting**: the raw question (plus recent chat turns) is rewritten into a standalone, retrieval-optimized search query.
 - **LLM**: Powered by **Llama 3** (via Groq API) for fast, high-quality reasoning.
 - **Groundedness**: A strict system prompt ensures the AI only answers based on the provided context and cites its sources using bracketed markers.
@@ -58,6 +67,9 @@ When a `COHERE_API_KEY` is configured, the top hybrid candidates are re-scored b
 
    # Optional — enables cross-encoder reranking
    COHERE_API_KEY=your_cohere_key
+
+   # Optional — Corrective RAG is on by default; set false to disable
+   # ENABLE_CRAG=false
    ```
 4. `npm run build && npm start`
 
